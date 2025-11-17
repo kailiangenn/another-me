@@ -7,15 +7,13 @@
 - 简单结构识别
 """
 
-import logging
 from typing import List
 from pathlib import Path
+from loguru import logger
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
 from ..core.exceptions import ParseError
-
-logger = logging.getLogger(__name__)
 
 
 class TextParser(FileParserBase):
@@ -68,7 +66,7 @@ class TextParser(FileParserBase):
             )
         
         except Exception as e:
-            logger.error(f"文本文件解析失败: {file_path}, {e}", exc_info=True)
+            logger.error(f"文本文件解析失败: {file_path}, 错误: {e}")
             raise
     
     def _read_text_with_encoding(self, path: Path) -> str:

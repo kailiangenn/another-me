@@ -8,16 +8,14 @@ Markdown 文件解析器
 - 列表、引用等结构
 """
 
-import logging
 import re
 from typing import List
 from pathlib import Path
+from loguru import logger
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
 from ..core.exceptions import ParseError
-
-logger = logging.getLogger(__name__)
 
 
 class MarkdownParser(FileParserBase):
@@ -78,7 +76,7 @@ class MarkdownParser(FileParserBase):
             )
         
         except Exception as e:
-            logger.error(f"Markdown 文件解析失败: {file_path}, {e}", exc_info=True)
+            logger.error(f"Markdown 文件解析失败: {file_path}, 错误: {e}")
             raise
     
     def _parse_markdown_structure(self, content: str) -> List[DocumentSection]:

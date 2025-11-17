@@ -6,11 +6,9 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Callable, Optional, Dict, Any
-import logging
+from loguru import logger
 
 from ...core import CompressContext, CompressResult
-
-logger = logging.getLogger(__name__)
 
 
 class CompressStrategy(ABC):

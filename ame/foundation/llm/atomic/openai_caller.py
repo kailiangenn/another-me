@@ -4,20 +4,18 @@ OpenAI调用器 - 原子能力层
 优化版OpenAI调用器，使用tiktoken精确估算token。
 """
 
-import logging
 from typing import Optional, List, Dict, AsyncIterator
 from openai import AsyncOpenAI
+from loguru import logger
 
 try:
     import tiktoken
     TIKTOKEN_AVAILABLE = True
 except ImportError:
     TIKTOKEN_AVAILABLE = False
-    logging.warning("tiktoken未安装，将使用简单估算方法")
+    logger.warning("tiktoken未安装，将使用简单估算方法")
 
 from .caller import LLMCallerBase, LLMResponse
-
-logger = logging.getLogger(__name__)
 
 
 class OpenAICaller(LLMCallerBase):
@@ -134,7 +132,9 @@ class OpenAICaller(LLMCallerBase):
             RuntimeError: 如果调用器未配置
         """
         if not self.is_configured():
-            raise RuntimeError("OpenAICaller未正确配置，请检查API密钥")
+            error_msg = "OpenAICaller未正确配置，请检查API密钥"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
         
         try:
             response = await self._client.chat.completions.create(
@@ -174,7 +174,8 @@ class OpenAICaller(LLMCallerBase):
             )
         
         except Exception as e:
-            logger.error(f"OpenAI生成失败: {type(e).__name__}: {e}")
+            error_msg = f"OpenAI生成失败: {type(e).__name__}: {e}"
+            logger.error(error_msg)
             raise
     
     async def generate_stream(
@@ -205,7 +206,9 @@ class OpenAICaller(LLMCallerBase):
             RuntimeError: 如果调用器未配置
         """
         if not self.is_configured():
-            raise RuntimeError("OpenAICaller未正确配置，请检查API密钥")
+            error_msg = "OpenAICaller未正确配置，请检查API密钥"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
         
         try:
             response = await self._client.chat.completions.create(
@@ -225,7 +228,8 @@ class OpenAICaller(LLMCallerBase):
                     yield chunk.choices[0].delta.content
         
         except Exception as e:
-            logger.error(f"OpenAI流式生成失败: {type(e).__name__}: {e}")
+            error_msg = f"OpenAI流式生成失败: {type(e).__name__}: {e}"
+            logger.error(error_msg)
             raise
     
     @property

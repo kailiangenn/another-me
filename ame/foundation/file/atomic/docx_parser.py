@@ -10,15 +10,13 @@ DOCX 文件解析器
 依赖: python-docx
 """
 
-import logging
 from typing import List
 from pathlib import Path
+from loguru import logger
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
 from ..core.exceptions import DependencyMissingError, ParseError
-
-logger = logging.getLogger(__name__)
 
 
 class DocxParser(FileParserBase):
@@ -47,7 +45,8 @@ class DocxParser(FileParserBase):
             import docx
             self.docx_lib = docx
         except ImportError:
-            logger.error("DOCX 解析依赖未安装")
+            error_msg = "DOCX 解析依赖未安装"
+            logger.error(error_msg)
             self.docx_lib = None
     
     def can_parse(self, file_path: str) -> bool:
@@ -81,7 +80,7 @@ class DocxParser(FileParserBase):
             return await self._parse_docx(path)
         
         except Exception as e:
-            logger.error(f"DOCX 文件解析失败: {file_path}, {e}", exc_info=True)
+            logger.error(f"DOCX 文件解析失败: {file_path}, 错误: {e}")
             raise
     
     async def _parse_docx(self, path: Path) -> ParsedDocument:

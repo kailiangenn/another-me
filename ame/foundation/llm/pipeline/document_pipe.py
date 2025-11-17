@@ -8,9 +8,9 @@
 - ConversationHistory: 分析历史管理
 """
 
-import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
+from loguru import logger
 
 from .base import PipelineBase
 from ..core import (
@@ -26,8 +26,6 @@ from ..atomic import (
     DocumentCompressStrategy,
     RetryStrategy,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class DocumentPipe(PipelineBase):
@@ -191,7 +189,8 @@ class DocumentPipe(PipelineBase):
                 )
         
         except Exception as e:
-            logger.error(f"DocumentPipe处理失败: {type(e).__name__}: {e}")
+            error_msg = f"DocumentPipe处理失败: {type(e).__name__}: {e}"
+            logger.error(error_msg)
             raise
     
     def clear_history(self):

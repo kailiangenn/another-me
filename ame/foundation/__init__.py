@@ -14,8 +14,8 @@ Foundation Layer - 基础能力层
 
 __version__ = "0.3.0"
 
-# Inference
-from .inference import CascadeInferenceEngine, InferenceLevel, InferenceResult
+# Inference (commented out - module not present)
+# from .inference import CascadeInferenceEngine, InferenceLevel, InferenceResult
 
 # LLM
 from .llm import LLMCallerBase, OpenAICaller
@@ -41,10 +41,10 @@ from .utils import (
 )
 
 __all__ = [
-    # Inference
-    "CascadeInferenceEngine",
-    "InferenceLevel",
-    "InferenceResult",
+    # Inference (commented out)
+    # "CascadeInferenceEngine",
+    # "InferenceLevel",
+    # "InferenceResult",
     
     # LLM
     "LLMCallerBase",

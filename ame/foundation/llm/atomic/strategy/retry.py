@@ -5,11 +5,9 @@
 """
 
 import asyncio
-import logging
 from typing import Callable, Optional, Type, Tuple
 from functools import wraps
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class RetryStrategy:
@@ -99,7 +97,8 @@ class RetryStrategy:
                 
                 # 判断是否应该重试
                 if not self._should_retry(e):
-                    logger.warning(f"遇到不可重试的错误: {type(e).__name__}: {e}")
+                    error_msg = f"遇到不可重试的错误: {type(e).__name__}: {e}"
+                    logger.warning(error_msg)
                     raise
                 
                 # 如果还有重试机会
@@ -112,9 +111,8 @@ class RetryStrategy:
                     await asyncio.sleep(wait_time)
                     continue
                 else:
-                    logger.error(
-                        f"达到最大重试次数 {self.max_retries}，最后错误: {type(e).__name__}: {e}"
-                    )
+                    error_msg = f"达到最大重试次数 {self.max_retries}，最后错误: {type(e).__name__}: {e}"
+                    logger.error(error_msg)
         
         # 所有重试都失败了，抛出最后一个错误
         raise last_error

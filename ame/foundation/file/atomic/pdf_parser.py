@@ -10,15 +10,13 @@ PDF 文件解析器
 依赖: PyPDF2 或 pdfplumber
 """
 
-import logging
 from typing import List, Optional
 from pathlib import Path
+from loguru import logger
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
 from ..core.exceptions import DependencyMissingError, ParseError
-
-logger = logging.getLogger(__name__)
 
 
 class PDFParser(FileParserBase):
@@ -62,7 +60,8 @@ class PDFParser(FileParserBase):
                 import PyPDF2
                 self.pdf_lib = PyPDF2
             except ImportError:
-                logger.error("PDF 解析依赖未安装")
+                error_msg = "PDF 解析依赖未安装"
+                logger.error(error_msg)
                 self.pdf_lib = None
     
     def can_parse(self, file_path: str) -> bool:
@@ -99,7 +98,7 @@ class PDFParser(FileParserBase):
                 return await self._parse_with_pypdf2(path)
         
         except Exception as e:
-            logger.error(f"PDF 文件解析失败: {file_path}, {e}", exc_info=True)
+            logger.error(f"PDF 文件解析失败: {file_path}, 错误: {e}")
             raise
     
     async def _parse_with_pypdf2(self, path: Path) -> ParsedDocument:

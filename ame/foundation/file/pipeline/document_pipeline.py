@@ -8,9 +8,9 @@
 - 支持自定义解析器
 """
 
-import logging
 from typing import List, Optional, Dict
 from pathlib import Path
+from loguru import logger
 
 from ..atomic import (
     FileParserBase,
@@ -21,8 +21,6 @@ from ..atomic import (
 )
 from ..core.models import ParsedDocument, DocumentFormat
 from ..core.exceptions import UnsupportedFormatError
-
-logger = logging.getLogger(__name__)
 
 
 class DocumentParsePipeline:
@@ -94,15 +92,21 @@ class DocumentParsePipeline:
         # 验证文件存在
         path = Path(file_path)
         if not path.exists():
-            raise FileNotFoundError(f"文件不存在: {file_path}")
+            error_msg = f"文件不存在: {file_path}"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
         
         if not path.is_file():
-            raise ValueError(f"不是文件: {file_path}")
+            error_msg = f"不是文件: {file_path}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         # 选择解析器
         parser = self._select_parser(str(path), parser_name)
         
         if not parser:
+            error_msg = f"不支持的文件格式: {path.suffix}"
+            logger.error(error_msg)
             raise UnsupportedFormatError(path.suffix)
         
         logger.info(f"使用 {parser.__class__.__name__} 解析文件: {path.name}")
@@ -118,7 +122,7 @@ class DocumentParsePipeline:
             return parsed_doc
         
         except Exception as e:
-            logger.error(f"文档解析失败: {file_path}, {e}", exc_info=True)
+            logger.error(f"文档解析失败: {file_path}, 错误: {e}")
             raise
     
     async def batch_parse(

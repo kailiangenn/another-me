@@ -9,9 +9,9 @@
 - ConversationHistory: 会话历史管理
 """
 
-import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from loguru import logger
 
 from .base import PipelineBase
 from ..core import (
@@ -28,8 +28,6 @@ from ..atomic import (
     SessionCompressStrategy,
     RetryStrategy,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class SessionPipe(PipelineBase):
@@ -229,7 +227,8 @@ class SessionPipe(PipelineBase):
                 )
         
         except Exception as e:
-            logger.error(f"SessionPipe处理失败: {type(e).__name__}: {e}")
+            error_msg = f"SessionPipe处理失败: {type(e).__name__}: {e}"
+            logger.error(error_msg)
             raise
     
     def clear_history(self):
