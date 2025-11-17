@@ -2,7 +2,11 @@
     <img src="./another-me-logo.jpg" alt="AME Logo" width="200" />
 </div>
 
-# AME (Another Me Engine) 
+<div align="center">
+
+# AME (Another Me Engine)
+
+</div>
 
 <div align="center">
 
