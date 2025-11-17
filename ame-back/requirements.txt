@@ -33,4 +33,4 @@ python-magic>=0.4.27  # For file type detection
 psutil>=5.9.0  # For performance monitoring
 
 # Logging
-coloredlogs>=15.0  # For colored logging output
+loguru>=0.7.0  # Modern logging with better developer experience
