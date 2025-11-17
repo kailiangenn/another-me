@@ -7,9 +7,7 @@ import sys
 
 import tempfile
 from pathlib import Path
-sys.path.append(Path(__file__).parent.parent.parent.parent)
-sys.path.append('/Users/kaiiangs/Desktop/another-me/ame')
-print(sys.path)
+sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from ame.foundation.file import (
     DocumentParsePipeline,
