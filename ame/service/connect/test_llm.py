@@ -260,7 +260,7 @@ class LLMTester:
             logger.error(f"  错误: {result.error}")
 
 
-async def test_llm(
+async def test_llm_callers(
     caller: Optional[LLMCallerBase] = None,
     config: Optional[TestConfig] = None,
     api_key: Optional[str] = None,
@@ -341,7 +341,7 @@ if __name__ == "__main__":
         test_error_handling=False
     )
     
-    summary = asyncio.run(test_llm(caller=caller, config=config))
+    summary = asyncio.run(test_llm_callers(caller=caller, config=config))
     print(f"\n测试结果: {'成功' if summary.success else '失败'}")
     
     # 示例用法2: 仅传入API配置，自动实例化
