@@ -13,6 +13,7 @@ PDF 文件解析器
 from typing import List, Optional
 from pathlib import Path
 from loguru import logger
+import PyPDF2
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
@@ -43,31 +44,11 @@ class PDFParser(FileParserBase):
             use_pdfplumber: 是否使用 pdfplumber（默认使用 PyPDF2）
         """
         self.use_pdfplumber = use_pdfplumber
-        self._check_dependencies()
-    
-    def _check_dependencies(self):
-        """检查依赖是否安装"""
-        if self.use_pdfplumber:
-            try:
-                import pdfplumber
-                self.pdf_lib = pdfplumber
-            except ImportError:
-                logger.warning("pdfplumber 未安装，回退到 PyPDF2")
-                self.use_pdfplumber = False
-        
-        if not self.use_pdfplumber:
-            try:
-                import PyPDF2
-                self.pdf_lib = PyPDF2
-            except ImportError:
-                error_msg = "PDF 解析依赖未安装"
-                logger.error(error_msg)
-                self.pdf_lib = None
     
     def can_parse(self, file_path: str) -> bool:
         """判断是否支持该文件"""
         extension = self._get_file_extension(file_path)
-        return extension in self.SUPPORTED_EXTENSIONS and self.pdf_lib is not None
+        return extension in self.SUPPORTED_EXTENSIONS
     
     async def parse(self, file_path: str) -> ParsedDocument:
         """
@@ -78,17 +59,7 @@ class PDFParser(FileParserBase):
         
         Returns:
             parsed_doc: 解析结果
-        
-        Raises:
-            ImportError: PDF 解析库未安装
         """
-        if self.pdf_lib is None:
-            raise DependencyMissingError(
-                "PyPDF2 或 pdfplumber",
-                "pip install PyPDF2 或 pip install pdfplumber"
-            )
-        
-        # 验证文件
         path = self._validate_file_exists(file_path)
         
         try:
@@ -111,8 +82,6 @@ class PDFParser(FileParserBase):
         Returns:
             parsed_doc: 解析结果
         """
-        import PyPDF2
-        
         sections = []
         raw_content_parts = []
         

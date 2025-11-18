@@ -11,6 +11,7 @@
 - Markdown
 - TXT
 - DOC/DOCX
+- PPT/PPTX
 
 特性:
 - 结构化解析结果
@@ -38,6 +39,7 @@ from .atomic import (
     MarkdownParser,
     PDFParser,
     DocxParser,
+    PPTParser,
 )
 
 # 管道
@@ -65,6 +67,7 @@ __all__ = [
     "MarkdownParser",
     "PDFParser",
     "DocxParser",
+    "PPTParser",
     
     # 管道
     "DocumentParsePipeline",

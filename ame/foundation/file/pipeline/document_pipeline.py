@@ -18,6 +18,7 @@ from ..atomic import (
     MarkdownParser,
     PDFParser,
     DocxParser,
+    PPTParser,
 )
 from ..core.models import ParsedDocument, DocumentFormat
 from ..core.exceptions import UnsupportedFormatError
@@ -55,6 +56,7 @@ class DocumentParsePipeline:
             MarkdownParser(),      # Markdown 优先（因为可能被误识别为文本）
             PDFParser(use_pdfplumber=use_pdfplumber),
             DocxParser(),
+            PPTParser(),
             TextParser(),          # 文本解析器放最后（兜底）
         ]
         

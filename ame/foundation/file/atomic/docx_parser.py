@@ -13,6 +13,7 @@ DOCX 文件解析器
 from typing import List
 from pathlib import Path
 from loguru import logger
+import docx
 
 from .base import FileParserBase
 from ..core.models import ParsedDocument, DocumentSection, DocumentFormat, SectionType
@@ -35,24 +36,10 @@ class DocxParser(FileParserBase):
     
     SUPPORTED_EXTENSIONS = {"docx"}
     
-    def __init__(self):
-        """初始化 DOCX 解析器"""
-        self._check_dependencies()
-    
-    def _check_dependencies(self):
-        """检查依赖是否安装"""
-        try:
-            import docx
-            self.docx_lib = docx
-        except ImportError:
-            error_msg = "DOCX 解析依赖未安装"
-            logger.error(error_msg)
-            self.docx_lib = None
-    
     def can_parse(self, file_path: str) -> bool:
         """判断是否支持该文件"""
         extension = self._get_file_extension(file_path)
-        return extension in self.SUPPORTED_EXTENSIONS and self.docx_lib is not None
+        return extension in self.SUPPORTED_EXTENSIONS
     
     async def parse(self, file_path: str) -> ParsedDocument:
         """
@@ -63,22 +50,11 @@ class DocxParser(FileParserBase):
         
         Returns:
             parsed_doc: 解析结果
-        
-        Raises:
-            ImportError: python-docx 未安装
         """
-        if self.docx_lib is None:
-            raise DependencyMissingError(
-                "python-docx",
-                "pip install python-docx"
-            )
-        
-        # 验证文件
         path = self._validate_file_exists(file_path)
         
         try:
             return await self._parse_docx(path)
-        
         except Exception as e:
             logger.error(f"DOCX 文件解析失败: {file_path}, 错误: {e}")
             raise
@@ -93,8 +69,6 @@ class DocxParser(FileParserBase):
         Returns:
             parsed_doc: 解析结果
         """
-        import docx
-        
         doc = docx.Document(path)
         
         sections = []

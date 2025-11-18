@@ -21,6 +21,7 @@ class DocumentFormat(str, Enum):
     TEXT = "text"
     DOCX = "docx"
     DOC = "doc"
+    PPT = "ppt"
     UNKNOWN = "unknown"
 
 
