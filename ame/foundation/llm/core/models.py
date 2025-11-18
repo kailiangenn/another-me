@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Dict, Optional, Any, AsyncIterator, Callable
 from datetime import datetime
+from .history import ConversationHistory
 
 
 # ============================================================================
@@ -147,9 +148,7 @@ class PipelineContext:
             
         Returns:
             PipelineContext 实例
-        """
-        from .history import ConversationHistory
-        
+        """        
         return cls(
             messages=history.messages.copy(),
             metadata=history.metadata.copy(),

@@ -63,3 +63,6 @@ logs/
 *.log
 
 # .qoder/
+
+# test files
+ame-tests/foundation/file/test_file

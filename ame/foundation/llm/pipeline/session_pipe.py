@@ -65,6 +65,11 @@ class SessionPipe(PipelineBase):
         self.keep_recent = keep_recent
         self.max_retries = max_retries
         
+        # 初始化会话历史
+        self.history = ConversationHistory(
+            metadata={"pipeline": "session"}
+        )
+        
         super().__init__(caller)
     
     def _setup_strategies(self):
