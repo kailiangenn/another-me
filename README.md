@@ -129,7 +129,7 @@ ame/
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-repo/another-me.git
+git clone https://github.com/kailiangenn/another-me.git
 cd another-me/ame
 
 # 创建虚拟环境
@@ -487,9 +487,9 @@ pytest --cov=ame tests/
 
 ## 📧 联系方式
 
-- **项目主页**: https://github.com/your-repo/another-me
-- **问题反馈**: [GitHub Issues](https://github.com/your-repo/another-me/issues)
-- **邮箱**: your-email@example.com
+- **项目主页**: https://github.com/kailiangenn/another-me
+- **问题反馈**: [GitHub Issues](https://github.com/kailiangenn/another-me/issues)
+- **邮箱**: shangkl@enn.cn
 
 ---
 
@@ -497,6 +497,6 @@ pytest --cov=ame tests/
 
 **⭐ 如果这个项目对你有帮助，请给一个 Star！**
 
-Made with ❤️ by AME Team
+Made with ❤️ by EnnIoT Team
 
 </div>

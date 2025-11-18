@@ -6,7 +6,7 @@ Capabilities Layer - 能力模块层
 推荐使用 CapabilityFactory 来构建和组合能力，而非直接实例化。
 """
 
-__version__ = "0.4.0"
+__version__ = "0.1.0"
 
 # Memory
 from .memory import MemoryBase, MemoryItem, MemoryManager, ConversationFilter

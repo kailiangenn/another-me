@@ -12,7 +12,7 @@ Foundation Layer - 基础能力层
 - utils: 工具函数
 """
 
-__version__ = "0.3.0"
+__version__ = "0.1.0"
 
 # Inference
 from .inference import CascadeInferenceEngine, InferenceLevel, InferenceResult

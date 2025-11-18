@@ -5,7 +5,7 @@ AME - Another Me Engine
 架构：Foundation (基础能力层) → Capabilities (能力模块层) → Services (业务服务层)
 """
 
-__version__ = "0.4.0"
+__version__ = "0.1.0"
 __author__ = "Another Me Team"
 
 # ========== Foundation Layer (基础能力层) ==========

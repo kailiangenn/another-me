@@ -9,7 +9,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 setup(
     name="another-me",
     version="0.1.0",
-    author="AME Team",
+    author="EnnIoT Team",
     author_email="shangkl@enn.cn",
     description="AME (Another Me Engine) - AI Digital Avatar Engine",
     long_description=long_description,

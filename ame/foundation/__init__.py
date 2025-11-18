@@ -8,7 +8,7 @@ Foundation Layer - 基础能力层
 - file: 文件解析能力
 """
 
-__version__ = "0.3.0"
+__version__ = "0.1.0"
 
 # LLM
 from .llm import (
