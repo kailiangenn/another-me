@@ -52,6 +52,11 @@ class TestSummary:
     def success(self) -> bool:
         """是否全部通过"""
         return self.passed == self.total
+    
+    @property
+    def all_passed(self) -> bool:
+        """是否所有测试都通过（别名）"""
+        return self.success
 
 
 class LLMTester:
