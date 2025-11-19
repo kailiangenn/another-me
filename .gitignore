@@ -66,3 +66,6 @@ logs/
 
 # test files
 ame-tests/foundation/file/test_file
+
+# backup files
+ame-back/

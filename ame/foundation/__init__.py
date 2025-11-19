@@ -6,6 +6,9 @@ Foundation Layer - 基础能力层
 模块：
 - llm: LLM 调用能力
 - file: 文件解析能力
+- nlp: 自然语言处理能力
+- algorithm: 算法能力
+- storage: 存储能力
 """
 
 __version__ = "0.1.0"
@@ -42,6 +45,56 @@ from .llm import (
     PipelineBase,
     SessionPipe,
     DocumentPipe,
+)
+
+# NLP
+from .nlp import (
+    # Core - Enums
+    IntentType,
+    EntityType,
+    EmotionType,
+    # Core - Models
+    IntentResult,
+    Entity,
+    EmotionResult,
+    Summary,
+    NLPAnalysisResult,
+    # Core - Exceptions
+    NLPError,
+    IntentRecognitionError,
+    EntityExtractionError,
+    EmotionAnalysisError,
+    SummarizationError,
+    ModelNotLoadedError,
+    # Atomic
+    IntentRecognizer,
+    EntityExtractor,
+    EmotionAnalyzer,
+    Summarizer,
+)
+
+# Algorithm
+from .algorithm import (
+    TodoSorter,
+    TodoItem,
+    SortedTodoList,
+    Priority,
+    TaskStatus,
+)
+
+# Storage
+from .storage import (
+    # Core
+    GraphStoreBase,
+    GraphNode,
+    GraphEdge,
+    NodeLabel,
+    RelationType,
+    # Atomic
+    FalkorDBStore,
+    # Pipeline
+    LifeGraphPipeline,
+    WorkGraphPipeline,
 )
 
 # File
@@ -116,4 +169,46 @@ __all__ = [
     # File - Pipeline
     "DocumentParsePipeline",
     "parse_document",
+    
+    # NLP - Core - Enums
+    "IntentType",
+    "EntityType",
+    "EmotionType",
+    # NLP - Core - Models
+    "IntentResult",
+    "Entity",
+    "EmotionResult",
+    "Summary",
+    "NLPAnalysisResult",
+    # NLP - Core - Exceptions
+    "NLPError",
+    "IntentRecognitionError",
+    "EntityExtractionError",
+    "EmotionAnalysisError",
+    "SummarizationError",
+    "ModelNotLoadedError",
+    # NLP - Atomic
+    "IntentRecognizer",
+    "EntityExtractor",
+    "EmotionAnalyzer",
+    "Summarizer",
+    
+    # Algorithm
+    "TodoSorter",
+    "TodoItem",
+    "SortedTodoList",
+    "Priority",
+    "TaskStatus",
+    
+    # Storage - Core
+    "GraphStoreBase",
+    "GraphNode",
+    "GraphEdge",
+    "NodeLabel",
+    "RelationType",
+    # Storage - Atomic
+    "FalkorDBStore",
+    # Storage - Pipeline
+    "LifeGraphPipeline",
+    "WorkGraphPipeline",
 ]

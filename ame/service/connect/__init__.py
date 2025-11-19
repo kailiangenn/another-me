@@ -1,7 +1,15 @@
-from .test_llm import test_llm_callers
-from .test_storage import test_storage_graph
+"""
+Connect Service - 配置测试服务
+"""
+
+from .connect_service import ConnectService
+from .test_llm import TestSummary, TestResult, TestConfig as LLMTestConfig
+from .test_storage import TestConfig as StorageTestConfig
 
 __all__ = [
-    "test_llm_callers",
-    "test_storage_graph"
+    "ConnectService",
+    "TestSummary",
+    "TestResult",
+    "LLMTestConfig",
+    "StorageTestConfig",
 ]
