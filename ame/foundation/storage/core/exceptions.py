@@ -31,3 +31,13 @@ class QueryError(StorageError):
     def __init__(self, message: str, query: str = None):
         self.query = query
         super().__init__(message)
+
+
+class VectorStoreError(StorageError):
+    """向量存储异常"""
+    pass
+
+
+class GraphStoreError(StorageError):
+    """图存储异常"""
+    pass

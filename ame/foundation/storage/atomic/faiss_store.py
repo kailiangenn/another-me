@@ -246,11 +246,18 @@ class FaissVectorStore(VectorStoreBase):
         if vector_id not in self.id_to_index:
             return False
         
-        # Faiss不支持直接删除,需要标记或重建索引
-        # 这里简单实现:从映射中移除
+        # 从映射中移除
         faiss_idx = self.id_to_index.pop(vector_id)
         self.index_to_id.pop(faiss_idx, None)
         self.metadata_store.pop(vector_id, None)
+        
+        # 标记需要重建（当删除达到一定比例时自动重建）
+        self._deleted_count = getattr(self, '_deleted_count', 0) + 1
+        
+        # 如果删除数量超过总数的30%，自动重建索引
+        if self.index.ntotal > 0 and self._deleted_count / self.index.ntotal > 0.3:
+            logger.info(f"删除数量达到{self._deleted_count}，触发索引重建")
+            await self._rebuild_index()
         
         logger.debug(f"已删除向量: {vector_id}")
         return True
@@ -341,7 +348,8 @@ class FaissVectorStore(VectorStoreBase):
     async def count(self, filter: Optional[Dict[str, Any]] = None) -> int:
         """统计向量数量"""
         if not filter:
-            return self.index.ntotal
+            # 返回映射数量，而不是index.ntotal（可能包含已删除但未重建的向量）
+            return len(self.id_to_index)
         
         # 应用过滤
         count = 0
@@ -357,8 +365,84 @@ class FaissVectorStore(VectorStoreBase):
         self.index_to_id.clear()
         self.metadata_store.clear()
         self._next_index = 0
+        self._deleted_count = 0
         logger.info("已清空所有向量")
         return True
+    
+    async def _rebuild_index(self) -> bool:
+        """重建索引，真正移除已删除的向量
+        
+        Returns:
+            是否成功重建
+        """
+        try:
+            logger.info("开始重建 Faiss 索引...")
+            
+            # 收集所有有效向量
+            valid_vectors = []
+            valid_ids = []
+            
+            for vector_id in list(self.id_to_index.keys()):
+                faiss_idx = self.id_to_index[vector_id]
+                try:
+                    # 重构向量
+                    embedding = self.index.reconstruct(faiss_idx)
+                    valid_vectors.append(embedding)
+                    valid_ids.append(vector_id)
+                except Exception as e:
+                    logger.warning(f"无法重构向量 {vector_id}: {e}")
+            
+            if not valid_vectors:
+                logger.info("没有有效向量，清空索引")
+                await self.clear()
+                return True
+            
+            # 创建新索引
+            await self._create_index()
+            
+            # 批量添加有效向量
+            embeddings_array = np.array(valid_vectors, dtype='float32')
+            self.index.add(embeddings_array)
+            
+            # 重建映射
+            self.id_to_index.clear()
+            self.index_to_id.clear()
+            
+            for i, vector_id in enumerate(valid_ids):
+                self.id_to_index[vector_id] = i
+                self.index_to_id[i] = vector_id
+            
+            self._next_index = len(valid_ids)
+            self._deleted_count = 0
+            
+            logger.info(f"索引重建完成，有效向量数: {len(valid_ids)}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"重建索引失败: {e}")
+            return False
+    
+    async def rebuild_if_needed(self, force: bool = False) -> bool:
+        """按需重建索引
+        
+        Args:
+            force: 强制重建，忽略阈值检查
+            
+        Returns:
+            是否执行了重建
+        """
+        deleted_count = getattr(self, '_deleted_count', 0)
+        
+        if force:
+            logger.info("强制重建索引")
+            return await self._rebuild_index()
+        
+        # 检查是否需要重建
+        if self.index.ntotal > 0 and deleted_count / self.index.ntotal > 0.3:
+            logger.info(f"删除比例超过30% ({deleted_count}/{self.index.ntotal})，执行重建")
+            return await self._rebuild_index()
+        
+        return False
     
     async def build_index(self, **kwargs) -> bool:
         """构建索引(IVF需要训练)"""

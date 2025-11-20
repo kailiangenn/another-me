@@ -180,21 +180,35 @@ class IntentRecognizer:
             intents.extend(list(custom_intents))
         
         return intents
+    
+    def _match_rules(self, text: str) -> tuple:
         """规则匹配
         
         Args:
             text: 输入文本
             
         Returns:
-            匹配到的意图类型，未匹配返回UNKNOWN
+            (匹配到的意图类型, 自定义意图名称)
         """
         for intent, patterns in self._rule_patterns.items():
             for pattern in patterns:
-                if re.search(pattern, text, re.IGNORECASE):
-                    logger.debug(f"规则匹配到意图: {intent.value}, 模式: {pattern}")
-                    return intent
+                # 处理自定义意图
+                custom_name = None
+                actual_pattern = pattern
+                if pattern.startswith("__CUSTOM:"):
+                    # 格式: __CUSTOM:intent_name__pattern
+                    parts = pattern.split("__", 2)  # 最多分为3部分
+                    if len(parts) >= 3:
+                        custom_info = parts[1]  # CUSTOM:intent_name
+                        actual_pattern = parts[2]  # 实际pattern
+                        if ":" in custom_info:
+                            custom_name = custom_info.split(":", 1)[1]
+                
+                if re.search(actual_pattern, text, re.IGNORECASE):
+                    logger.debug(f"规则匹配到意图: {intent.value}, 模式: {actual_pattern}")
+                    return intent, custom_name
         
-        return IntentType.UNKNOWN
+        return IntentType.UNKNOWN, None
     
     async def _llm_recognize(self, text: str) -> IntentResult:
         """LLM识别意图

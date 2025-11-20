@@ -208,11 +208,14 @@ class Summarizer:
             raw_content = raw_content.split("```")[1].split("```")[0].strip()
         
         return json.loads(raw_content)
+    
+    async def summarize(
         self, 
         text: str,
-        max_length: int = 200
+        max_length: int = 200,
+        strategy: Optional[SummaryStrategy] = None
     ) -> Summary:
-        总结单个文本
+        """总结单个文本
         
         Args:
             text: 输入文本

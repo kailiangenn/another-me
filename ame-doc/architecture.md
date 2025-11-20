@@ -85,12 +85,12 @@ graph TD
     
     D --> D1[✅ LLM<br/>SessionPipe/DocumentPipe]
     D --> D2[✅ File<br/>PDF/MD/DOCX解析]
-    D --> D3[✅ Storage<br/>FalkorDB+Faiss进行中]
+    D --> D3[✅ Storage<br/>FalkorDB+Faiss已完成]
     D --> D4[✅ NLP<br/>Intent/Entity/Summary]
     D --> D5[✅ Algorithm<br/>TodoSorter]
     
     C --> C1[✅ 生活能力<br/>对话/记忆]
-    C --> C2[⏳ 智能检索<br/>混合检索器开发中]
+    C --> C2[✅ 智能检索<br/>混合检索器已完成]
     C --> C3[✅ 工作能力<br/>项目/待办/建议]
     
     B --> B1[✅ LifeChatService]
@@ -186,15 +186,14 @@ graph TD
 ## 实施路线
 
 ### 已完成模块
-- ✅ **Foundation层**: LLM(调用器、策略、管道)、File(解析器)、NLP(意图识别、实体提取、摘要)、Storage(FalkorDB)、Algorithm(待办排序)
-- ✅ **Capability层**: CapabilityFactory、生活能力(对话生成、记忆提取)、工作能力(项目分析、待办管理、建议生成)
+- ✅ **Foundation层**: LLM(调用器、策略、管道)、File(解析器)、NLP(意图识别、实体提取、摘要)、Storage(FalkorDB+Faiss)、Algorithm(待办排序)
+- ✅ **Capability层**: CapabilityFactory、生活能力(对话生成、记忆提取)、工作能力(项目分析、待办管理、建议生成)、HybridRetriever(混合检索)
 - ✅ **Service层**: ConnectService、LifeChatService、WorkProjectService、WorkTodoService、WorkAdviceService
+- ✅ **测试覆盖**: NLP模块完整测试、Algorithm模块完整测试、FaissStore功能测试
 
 ### 开发中模块
-- ⏳ **Storage增强**: Faiss向量存储、混合检索器、批量操作优化
-- ⏳ **NLP增强**: 可配置意图识别、自定义词典支持、多策略摘要
-- ⏳ **Algorithm增强**: 可配置TodoSorter、文本相似度计算、时间模式分析
-- ⏳ **测试覆盖**: NLP/Storage/Algorithm单元测试、集成测试
+- ⏳ **技术优化**: FaissStore删除操作优化(当前仅移除映射，未真正从索引删除)
+- ⏳ **HybridRetriever增强**: 图谱检索策略优化(当前使用Jaccard相似度，应增强为多跳查询)
 
 ---
 
