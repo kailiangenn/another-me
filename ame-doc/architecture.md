@@ -12,18 +12,26 @@
    - [1.4 完整架构视图](#完整架构视图)
 2. [原子能力层 Foundation Layer](#原子能力层-foundation-layer)
    - [2.1 技术选型](#技术选型)
-   - [2.2 内部依赖关系](#内部依赖关系)
-   - [2.3 模块能力详解](#模块能力详解)
+   - [2.2 核心模块架构](#核心模块架构)
+   - [2.3 模块能力矩阵](#模块能力矩阵)
+   - [2.4 模块间协作关系](#模块间协作关系)
 3. [组合能力层 Capability Layer](#组合能力层-capability-layer)
-   - [3.1 Life场景能力](#life场景能力)
-   - [3.2 Work场景能力](#work场景能力)
+   - [3.1 Life场景能力编排](#life场景能力编排)
+   - [3.2 Work场景能力编排](#work场景能力编排)
    - [3.3 能力工厂模式](#能力工厂模式)
 4. [服务层 Service Layer](#服务层-service-layer)
    - [4.1 ChatService 生活对话服务](#chatservice-生活对话服务)
    - [4.2 WorkProjectService 项目分析服务](#workprojectservice-项目分析服务)
    - [4.3 WorkTodoService 待办管理服务](#worktodoservice-待办管理服务)
    - [4.4 WorkAdviceService 工作建议服务](#workadviceservice-工作建议服务)
-5. [架构设计原则](#架构设计原则)
+5. [数据流转与业务流程](#数据流转与业务流程)
+   - [5.1 生活场景数据流](#生活场景数据流)
+   - [5.2 工作场景数据流](#工作场景数据流)
+6. [架构设计原则](#架构设计原则)
+
+> 📝 **代码实现细节**: 请参考 [codedetail.md](./codedetail.md) 查看完整的目录结构、代码示例和实现细节
+
+> 📝 **代码实现细节**: 请参考 [codedetail.md](./codedetail.md) 查看完整的目录结构、代码示例和实现细节
 
 ---
 
@@ -153,28 +161,212 @@ graph BT
 
 > 💡 **设计理念**: 原子能力层是整个系统的**能力基座**，提供最小粒度的原子操作，所有上层功能都基于这些原子能力组合而成。
 
-### 技术选型
+> 🏛️ **两层架构**: 原子能力层采用**模块层 + 原子层**的两层设计，模块层定义能力边界，原子层提供具体实现。
+
+### 2.0 两层架构设计
+
+基础能力层采用**模块层(Module Layer) + 原子层(Atomic Layer)**的两层设计：
+
+```mermaid
+graph TB
+    subgraph Foundation["基础能力层 Foundation Layer"]
+        subgraph ModuleLayer["第一层：模块层 Module Layer"]
+            M1["🧠 LLM模块<br/>大模型能力"]
+            M2["💾 Storage模块<br/>存储能力"]
+            M3["📝 NLP模块<br/>自然语言处理"]
+            M4["📄 File模块<br/>文档解析"]
+            M5["⚙️ Algorithm模块<br/>算法工具"]
+        end
+        
+        subgraph AtomicLayer["第二层：原子层 Atomic Layer"]
+            direction LR
+            
+            subgraph LLM_Atomic["🧠 LLM原子层"]
+                L1["OpenAI API"]
+                L2["Claude API"]
+                L3["本地模型"]
+            end
+            
+            subgraph Storage_Atomic["💾 Storage原子层"]
+                S1["Faiss<br/>向量存储"]
+                S2["FalkorDB<br/>图数据库"]
+            end
+            
+            subgraph NLP_Atomic["📝 NLP原子层"]
+                N1["spaCy"]
+                N2["HuggingFace"]
+            end
+            
+            subgraph File_Atomic["📄 File原子层"]
+                F1["PyPDF2"]
+                F2["python-docx"]
+                F3["markdown"]
+            end
+            
+            subgraph Algorithm_Atomic["⚙️ Algorithm原子层"]
+                A1["NetworkX"]
+                A2["NumPy"]
+            end
+        end
+        
+        M1 -.-> LLM_Atomic
+        M2 -.-> Storage_Atomic
+        M3 -.-> NLP_Atomic
+        M4 -.-> File_Atomic
+        M5 -.-> Algorithm_Atomic
+    end
+    
+    style ModuleLayer fill:#fff9c4
+    style AtomicLayer fill:#e8f5e9
+```
+
+**两层架构说明**：
+
+#### 🔹 第一层：模块层 (Module Layer)
+
+模块层定义了5个核心能力模块，每个模块提供一类能力的抽象接口：
+
+| 模块 | 能力边界 | 对外接口 | 设计原则 |
+|------|----------|----------|----------|
+| **🧠 LLM模块** | 大模型调用、Prompt管理 | `call()`, `build_prompt()`, `manage_history()` | 屏蔽具体LLM实现细节 |
+| **💾 Storage模块** | 向量存储、图存储、混合检索 | `vector_search()`, `graph_query()`, `hybrid_retrieve()` | 统一存储抽象层 |
+| **📝 NLP模块** | NER、情感分析、意图识别 | `extract_entity()`, `analyze_emotion()`, `classify_intent()` | 通用NLP能力封装 |
+| **📄 File模块** | 多格式文档解析 | `parse(file)` | 自动识别格式 |
+| **⚙️ Algorithm模块** | 文本相似度、时间解析、拓扑排序 | `calculate_similarity()`, `parse_time()`, `topo_sort()` | 通用算法工具集 |
+
+**模块层的价值**：
+- 🛡️ **隔离变化**：上层不感知底层技术切换(如OpenAI→Claude)
+- 🔌 **能力边界**：明确各模块职责，避免能力散化
+- 🔧 **替换性**：支持同类能力的多种实现方案
+
+#### 🔹 第二层：原子层 (Atomic Layer)
+
+原子层是每个模块的**具体实现**，包含具体的开源技术方案：
+
+| 模块 | 原子层实现 | 说明 | 替代方案 |
+|------|------------|------|----------|
+| **🧠 LLM** | OpenAI API, Claude, 本地模型 | GPT-4/GPT-3.5-turbo | Anthropic Claude, Google Gemini, LLaMA |
+| **💾 Storage** | **Faiss**(向量) + **FalkorDB**(图) | 轻量高效 + Redis生态 | Milvus + Neo4j, Qdrant + ArangoDB |
+| **📝 NLP** | **spaCy** + **HuggingFace** | 工业级 + 生态丰富 | NLTK, Stanford CoreNLP, AllenNLP |
+| **📄 File** | **PyPDF2**, **python-docx**, **markdown** | Python生态成熟 | pdfplumber, PyMuPDF, mammoth |
+| **⚙️ Algorithm** | **NetworkX** + **NumPy** | 专业图算法 + 高性能计算 | SciPy, pandas, scikit-learn |
+
+**Storage模块示例**：
+```
+Storage模块(抽象层)
+├── Faiss(向量存储)     ← 原子层实现
+└── FalkorDB(图数据库)   ← 原子层实现
+```
+
+**原子层的价值**：
+- 🔌 **具体实现**：提供具体的技术实现方案
+- 🔄 **可替换性**：同一模块可有多种实现(如Faiss→Milvus)
+- ⚙️ **技术选型**：基于场景选择最优方案
+
+### 2.1 原子层技术选型
+
+以下为原子层的具体技术方案：
 
 | 模块 | 开源技术方案 | 说明 | 替代方案 |
 |------|------------|------|--------|
 | **🧠 LLM模块** | OpenAI API | GPT-4/GPT-3.5-turbo | Anthropic Claude, Google Gemini, 本地LLaMA/ChatGLM |
-| **💾 向量存储** | Faiss | Facebook开源,高性能向量检索 | Milvus, Qdrant, Weaviate, ChromaDB |
-| **🕸️ 图存储** | FalkorDB | Redis兼容的图数据库 | Neo4j, ArangoDB, JanusGraph, TigerGraph |
-| **📝 NLP工具** | spaCy + HuggingFace | spaCy做NER,HF做情感分析 | NLTK, Stanford CoreNLP, AllenNLP |
-| **🔢 向量化** | OpenAI Embedding | text-embedding-ada-002 | sentence-transformers, BGE, M3E(中文) |
-| **📄 文件解析** | PyPDF2 + python-docx + markdown | PDF/Word/MD解析 | pdfplumber, PyMuPDF, mammoth |
-| **⚙️ 算法库** | NetworkX + NumPy | 图算法+数值计算 | SciPy, pandas, scikit-learn |
+| **💾 Storage模块** | Faiss + FalkorDB | 向量存储 + 图数据库 | Milvus + Neo4j, Qdrant + ArangoDB |
+| **📝 NLP模块** | spaCy + HuggingFace | NER + 情感分析 | NLTK, Stanford CoreNLP, AllenNLP |
+| **📄 File模块** | PyPDF2 + python-docx | 多格式文档解析 | pdfplumber, PyMuPDF, mammoth |
+| **⚙️ Algorithm模块** | NetworkX + NumPy | 图算法 + 数值计算 | SciPy, pandas, scikit-learn |
 
-**开源技术选型原则**:
-1. **LLM**: 优先使用OpenAI,支持本地模型替换
-2. **向量存储**: Faiss轻量高效,适合中小规模
-3. **图存储**: FalkorDB与Redis生态集成,便于部署
-4. **NLP**: spaCy工业级,HuggingFace生态丰富
-5. **向量化**: 与LLM保持一致,使用OpenAI Embedding
-6. **文件解析**: Python生态成熟的库,稳定可靠
-7. **算法**: NetworkX专业图算法,NumPy高性能计算
+**技术选型原则**:
+1. **LLM**: 优先OpenAI API,支持本地模型替换
+2. **Storage**: Faiss轻量高效 + FalkorDB与Redis生态集成
+3. **NLP**: spaCy工业级 + HuggingFace生态丰富
+4. **File**: Python生态成熟的库,稳定可靠
+5. **Algorithm**: NetworkX专业图算法 + NumPy高性能计算
 
-### 内部依赖关系
+### 2.2 模块层架构详解
+
+模块层包含5个核心模块，每个模块内部包含多个能力组件：
+
+```mermaid
+graph TB
+    subgraph Foundation["原子能力层"]
+        direction LR
+        
+        subgraph LLM["🧠 LLM模块"]
+            L1["Caller<br/>调用器"]
+            L2["PromptBuilder<br/>提示词构建"]
+            L3["HistoryManager<br/>历史管理"]
+            L4["Strategy<br/>策略组件"]
+        end
+        
+        subgraph Storage["💾 Storage模块"]
+            S1["VectorStore<br/>向量存储"]
+            S2["GraphStore<br/>图存储"]
+            S3["HybridRetriever<br/>混合检索"]
+            S4["SchemaManager<br/>Schema管理"]
+        end
+        
+        subgraph NLP["📝 NLP模块"]
+            N1["EmotionAnalyzer<br/>情绪分析"]
+            N2["EntityExtractor<br/>实体提取"]
+            N3["IntentClassifier<br/>意图识别"]
+            N4["Summarizer<br/>文本摘要"]
+        end
+        
+        subgraph File["📄 File模块"]
+            F1["PDFParser<br/>PDF解析"]
+            F2["DocxParser<br/>Word解析"]
+            F3["MarkdownParser<br/>MD解析"]
+            F4["TextParser<br/>文本解析"]
+            F5["PPTParser<br/>PPT解析"]
+        end
+        
+        subgraph Algorithm["⚙️ Algorithm模块"]
+            A1["SimilarityCalculator<br/>文本相似度"]
+            A2["TimeAnalyzer<br/>时间分析"]
+            A3["TopologicalSorter<br/>拓扑排序"]
+            A4["StatisticsCalculator<br/>统计计算"]
+        end
+    end
+```
+
+### 2.3 模块能力矩阵
+
+### 2.4 模块间协作关系
+
+```mermaid
+graph LR
+    subgraph Foundation["原子能力层内部依赖"]
+        direction TB
+        
+        LLM["🧠 LLM模块<br/>OpenAI API"]
+        Storage["💾 Storage模块<br/>Faiss + FalkorDB"]
+        NLP["📝 NLP模块<br/>spaCy + HuggingFace"]
+        File["📄 File模块<br/>PyPDF2 + python-docx"]
+        Algorithm["⚙️ Algorithm模块<br/>NetworkX + NumPy"]
+        
+        %% 依赖关系
+        Storage -->|向量化API| LLM
+        NLP -->|高级分析| LLM
+        Storage <-->|实体关联| NLP
+        File -->|文本清洗| Algorithm
+        File -->|实体提取| NLP
+        Algorithm -->|图算法| Storage
+    end
+
+    style LLM fill:#ffe1e1
+    style Storage fill:#e1f5ff
+    style NLP fill:#fff4e1
+    style File fill:#f3e5f5
+    style Algorithm fill:#e0f2f1
+```
+
+**协作说明**:
+1. **Storage ← LLM**: 向量化通过LLM的Embedding API
+2. **NLP ← LLM**: 情绪、摘要等高级NLP可调用LLM
+3. **Storage ← NLP**: NER提取的实体存入图谱
+4. **Algorithm ← File**: 文本清洗、标准化
+5. **NLP ← File**: 文档解析后的实体提取
+6. **Storage ← Algorithm**: 图遍历、拓扑排序等
 
 ```mermaid
 graph LR
@@ -240,180 +432,102 @@ graph LR
    - 图遍历、拓扑排序等算法操作图数据
    - 依赖关系分析、路径查找等
 
-### 模块能力详解
+### 2.3 模块能力矩阵
 
-下面展示7个基础模块的详细能力图,每个模块都提供了细粒度的原子操作:
+#### 🧠 LLM模块
 
-#### 1. LLM模块能力图
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|---------|
+| **Caller** | LLM调用(同步/流式/批量) | prompt + params | 文本响应 | 对话生成、内容分析 |
+| **PromptBuilder** | 提示词构建(支持Few-shot) | template + variables | 完整提示词 | 风格模仿、任务解析 |
+| **HistoryManager** | 对话历史管理 | messages + max_length | 处理后的历史 | 上下文控制、历史压缩 |
+| **Strategy** | 策略管理(缓存/重试/压缩) | func + config | 执行结果 | 性能优化、容错处理 |
 
-```mermaid
-graph LR
-    subgraph LLM["🧠 LLM模块"]
-        direction TB
-        
-        subgraph LLMCaller["LLMCaller"]
-            LC1["call()<br/>输入: prompt, model<br/>输出: 响应文本"]
-            LC2["call_stream()<br/>输入: prompt<br/>输出: 流式响应"]
-            LC3["batch_call()<br/>输入: prompts列表<br/>输出: 响应列表"]
-        end
-        
-        subgraph PromptBuilder["提示词构建器"]
-            PB1["build()<br/>输入: 模板+变量<br/>输出: 完整提示词"]
-            PB2["build_with_history()<br/>输入: 模板+历史<br/>输出: 带历史提示词"]
-            PB3["build_few_shot()<br/>输入: 模板+示例<br/>输出: Few-shot提示词"]
-        end
-        
-        subgraph HistoryManager["历史管理器"]
-            HM1["manage()<br/>输入: 消息列表<br/>输出: 裁剪后消息"]
-            HM2["summarize_history()<br/>输入: 消息列表<br/>输出: 历史摘要"]
-            HM3["get_recent()<br/>输入: count<br/>输出: 最近N条消息"]
-        end
-        
-        subgraph Strategy["策略组件"]
-            S1["CacheStrategy<br/>get/set<br/>缓存管理"]
-            S2["RetryStrategy<br/>execute<br/>重试逻辑"]
-        end
-    end
+#### 💾 Storage模块  
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|---------|
+| **VectorStore** | 向量存储与检索 | vector + metadata | 相似结果 | 语义检索、内容推荐 |
+| **GraphStore** | 图谱存储与查询(支持时间边) | node/edge + properties | 图谱结果 | 关系分析、知识推理 |
+| **HybridRetriever** | 混合检索(Faiss 0.6 + Falkor 0.4) | query + top_k | 融合结果 | 上下文检索 |
+| **SchemaManager** | 图谱Schema管理 | node_type + edge_type | schema定义 | 图谱规范、数据验证 |
+
+**关键特性**:
+- 图边支持时间属性: `create_time`(生效时间) / `invalid_time`(失效时间)
+- 混合检索融合策略: 并行调用Faiss(语义)和Falkor(关系), 加权融合0.6+0.4
+- 向量存储直接使用FaissStore实现,承载向量+文本+元数据
+
+#### 📝 NLP模块
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|---------|
+| **EmotionAnalyzer** | 情绪分析 | 文本 | 情绪类型+强度 | 情绪追踪、趋势分析 |
+| **EntityExtractor** | 实体提取(NER) | 文本 | 实体列表+关系 | 构建知识图谱 |
+| **IntentClassifier** | 意图识别(分层) | 文本+上下文 | 意图类型 | 对话路由、功能分发 |
+| **Summarizer** | 文本摘要 | 文本/对话 | 摘要/关键点 | 会话总结、记忆提取 |
+
+**关键特性**:
+- 基于NER构建实体图谱: `(Document/Memory)-[:MENTIONS]->(Entity)`
+- 支持实体关系联合提取,用于多跳推理和关系演化分析
+
+#### 📄 File模块
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|---------|
+| **PDFParser** | PDF解析 | pdf_file | 文本+元数据 | 文档分析、知识提取 |
+| **DocxParser** | Word解析 | docx_file | 文本+表格 | 文档处理、内容提取 |
+| **MarkdownParser** | Markdown解析 | md_file | 结构化文本 | 文档转换、内容分析 |
+| **TextParser** | 文本解析 | txt_file | 清洗后文本 | 通用文本处理 |
+| **PPTParser** | PPT解析 | ppt_file | 幻灯片文本 | 演示文档分析 |
+
+#### ⚙️ Algorithm模块
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|---------|
+| **SimilarityCalculator** | 文本相似度计算 | text1 + text2 | 相似度分数 | 去重、合并、推荐 |
+| **TimeAnalyzer** | 时间解析(create_time/invalid_time) | 文本 | TimeInfo | 提取时间属性 |
+| **TopologicalSorter** | 拓扑排序(依赖分析) | tasks + dependencies | 排序结果 | 任务排序、依赖分析 |
+| **StatisticsCalculator** | 统计计算(完成率/延期率/效率) | 数据列表 | 统计指标 | 工作模式分析 |
+
+### 2.4 模块间协作关系
+
+> 💡 **设计原则**: 模块间协作遵循分层原则,上层模块可调用下层模块,同层模块之间通过接口交互。
+
+> 💡 **详细架构图**: 详细的模块能力图和目录结构请参考 [codedetail.md](./codedetail.md)
+
+---
+
+## 3. 组合能力层 Capability Layer
+
+> 🔧 **设计理念**: 组合能力层将多个原子能力组合起来,完成某个抽象的业务步骤
+
+### 3.1 Life场景能力编排
+
+| 组合能力 | 组合的原子能力 | 核心功能 | 数据输入 | 数据输出 |
+|----------|-----------------|----------|----------|----------|
+| **IntentRecognizer** | LLMCaller + IntentClassifier | 识别用户意图 | 消息+上下文 | 意图类型+置信度 |
+| **ContextRetriever** | VectorStore + GraphStore + HybridRetriever | 混合检索上下文 | 查询+会话ID | 上下文列表 |
+| **DialogueGenerator** | LLMCaller + PromptBuilder + HistoryManager | 生成个性化回复 | 上下文+消息 | 生成回复 |
+| **MemoryExtractor** | LLMCaller + EmotionAnalyzer + EntityExtractor + TimeAnalyzer | 提取记忆点 | 对话历史 | 记忆对象列表 |
+
+### 3.2 Work场景能力编排
+
+| 组合能力 | 组合的原子能力 | 核心功能 | 数据输入 | 数据输出 |
+|----------|-----------------|----------|----------|----------|
+| **DocumentParser** | 多个FileParser | 多格式文档解析 | 文件列表 | 文档对象列表 |
+| **ProjectAnalyzer** | EntityExtractor + LLMCaller | 项目分析报告 | 文档列表 | 分析报告 |
+| **TodoParser** | LLMCaller + TimeAnalyzer | 任务解析 | 任务描述 | 待办列表 |
+| **TodoManager** | GraphStore + SimilarityCalculator + TopologicalSorter | 待办管理 | 待办列表 | 排序后的待办 |
+| **PatternAnalyzer** | GraphStore + StatisticsCalculator | 工作模式分析 | 用户ID | 工作模式对象 |
+| **AdviceGenerator** | LLMCaller + PromptBuilder | 建议生成 | 工作模式 | Markdown建议 |
+
+### 3.3 能力工厂模式
+
+使用`CapabilityFactory`统一管理组合能力的创建和依赖注入，确保:
+- 统一的能力实例创建
+- 依赖关系自动处理
+- 简化服务层调用
 ```
-
-#### 2. Storage模块能力图
-
-```mermaid
-graph LR
-    subgraph Storage["💾 Storage模块"]
-        direction TB
-        
-        subgraph VectorStore["向量存储"]
-            VS1["add()<br/>输入: id, vector, metadata<br/>输出: bool"]
-            VS2["search()<br/>输入: query_vector, top_k<br/>输出: 检索结果"]
-            VS3["batch_add()<br/>输入: 批量数据<br/>输出: bool"]
-            VS4["delete/update<br/>管理向量数据"]
-        end
-        
-        subgraph GraphStore["图存储"]
-            GS1["add_node()<br/>输入: type, properties<br/>输出: node_id"]
-            GS2["add_edge()<br/>输入: from, to, type, props<br/>支持: create_time/invalid_time"]
-            GS3["query()<br/>输入: Cypher语句<br/>输出: 查询结果"]
-            GS4["find_neighbors()<br/>输入: node_id, depth<br/>输出: 邻居节点"]
-            GS5["update_node/edge<br/>更新节点/边属性"]
-        end
-        
-        subgraph HybridRetriever["混合检索"]
-            HR1["retrieve()<br/>输入: query, top_k<br/>Faiss: 0.6 + Falkor: 0.4<br/>输出: 融合结果"]
-            HR2["fuse_scores()<br/>加权融合+重排序"]
-        end
-        
-        subgraph Schema["图谱Schema"]
-            SC1["NODE_TYPES<br/>User/Memory/Entity<br/>Document/Todo/Session"]
-            SC2["EDGE_TYPES<br/>MENTIONS/LIKES<br/>DEPENDS_ON/RELATED_TO"]
-        end
-    end
-```
-
-#### 3. NLP模块能力图
-
-```mermaid
-graph LR
-    subgraph NLP["📝 NLP模块"]
-        direction TB
-        
-        subgraph EmotionAnalyzer["情绪分析器"]
-            EA1["analyze()<br/>输入: 文本<br/>输出: 情绪类型+强度"]
-            EA2["analyze_batch()<br/>批量分析"]
-            EA3["get_emotion_trend()<br/>输入: 情绪列表<br/>输出: 趋势分析"]
-        end
-        
-        subgraph EntityExtractor["NER实体提取"]
-            EE1["extract()<br/>输入: 文本<br/>输出: 实体列表"]
-            EE2["extract_with_relations()<br/>输入: 文本<br/>输出: 实体+关系<br/>用途: 构建DOC-MENTIONS-Entity"]
-            EE3["merge_entities()<br/>实体去重合并"]
-        end
-        
-        subgraph IntentClassifier["意图分类器"]
-            IC1["classify()<br/>输入: 文本+上下文<br/>输出: 意图类型"]
-            IC2["get_intent_hierarchy()<br/>分层意图识别"]
-        end
-        
-        subgraph Summarizer["摘要器"]
-            SM1["summarize()<br/>输入: 文本<br/>输出: 摘要"]
-            SM2["summarize_conversation()<br/>对话摘要"]
-            SM3["extract_keypoints()<br/>关键点提取"]
-        end
-    end
-```
-
-#### 4. File模块能力图
-
-```mermaid
-graph LR
-    subgraph File["📄 File模块"]
-        direction TB
-        
-        subgraph BaseParser["通用解析器"]
-            BP1["parse()<br/>输入: file_path<br/>输出: Document"]
-            BP2["extract_metadata()<br/>提取元数据"]
-        end
-        
-        subgraph PDFParser["PDF解析器"]
-            PDF1["parse()<br/>PDF文本提取"]
-            PDF2["parse_with_structure()<br/>结构化解析"]
-        end
-        
-        subgraph DocxParser["Word解析器"]
-            DOCX1["parse()<br/>Word文本提取"]
-            DOCX2["extract_tables()<br/>表格提取"]
-        end
-        
-        subgraph MarkdownParser["MD解析器"]
-            MD1["parse()<br/>Markdown解析"]
-            MD2["parse_to_html()<br/>转换HTML"]
-        end
-        
-        subgraph PPTParser["PPT解析器"]
-            PPT1["parse()<br/>PPT文本提取"]
-            PPT2["extract_by_slide()<br/>按幻灯片提取"]
-        end
-    end
-```
-
-#### 5. Algorithm模块能力图
-
-```mermaid
-graph LR
-    subgraph Algorithm["⚙️ Algorithm模块"]
-        direction TB
-        
-        subgraph SimilarityCalculator["相似度计算"]
-            SC1["calculate()<br/>输入: text1, text2<br/>输出: 相似度分数"]
-            SC2["calculate_batch()<br/>一对多计算"]
-            SC3["find_duplicates()<br/>查找重复文本"]
-        end
-        
-        subgraph TimeAnalyzer["时间分析"]
-            TA1["parse()<br/>输入: 文本<br/>输出: TimeInfo<br/>提取: create_time/invalid_time"]
-            TA2["extract_deadline()<br/>提取截止时间"]
-            TA3["calculate_duration()<br/>计算时间跨度"]
-        end
-        
-        subgraph TopologicalSorter["拓扑排序"]
-            TS1["sort()<br/>输入: tasks+依赖<br/>输出: 排序结果"]
-            TS2["detect_cycle()<br/>检测循环依赖"]
-        end
-        
-        subgraph StatisticsCalculator["统计计算"]
-            ST1["calculate()<br/>基础统计指标"]
-            ST2["calculate_completion_rate()<br/>完成率计算"]
-            ST3["calculate_delay_rate()<br/>延期率计算"]
-            ST4["calculate_efficiency_score()<br/>效率分数"]
-        end
-    end
-```
-
-### 原子能力层(Foundation Layer)详细设计
-
-#### 1. LLM模块
-```
-foundation/llm/
 ├── atomic/
 │   ├── caller.py              # LLM调用抽象基类
 │   ├── openai_caller.py       # OpenAI实现
@@ -430,412 +544,96 @@ foundation/llm/
     └── document_pipe.py       # 文档管道
 ```
 
-**核心原子能力详细说明**:
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - LLM模块部分
 
-**1.1 LLMCaller (LLM调用器)**
-```python
-class LLMCaller:
-    def call(self, prompt: str, model: str, temperature: float, max_tokens: int) -> str:
-        """
-        同步调用LLM
-        - 输入: 提示词、模型配置参数
-        - 输出: 生成的文本响应
-        - 功能: 支持重试、缓存、日志记录
-        """
+> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - Storage模块部分
     
-    def call_stream(self, prompt: str, model: str) -> Iterator[str]:
-        """
-        流式调用LLM
-        - 输入: 提示词、模型配置
-        - 输出: 生成文本的流式迭代器
-        - 功能: 实时返回生成内容
-        """
-    
-    def batch_call(self, prompts: List[str]) -> List[str]:
-        """
-        批量调用LLM
-        - 输入: 提示词列表
-        - 输出: 响应列表
-        - 功能: 批量处理提高效率
-        """
-```
 
-**1.2 PromptBuilder (提示词构建器)**
-```python
-class PromptBuilder:
-    def build(self, template: str, context: Dict, variables: Dict) -> str:
-        """
-        构建提示词
-        - 输入: 模板、上下文、变量
-        - 输出: 完整提示词
-        - 功能: 模板渲染、变量替换、上下文注入
-        """
-    
-    def build_with_history(self, template: str, history: List[Message]) -> str:
-        """
-        带历史的提示词构建
-        - 输入: 模板、历史消息
-        - 输出: 包含历史的提示词
-        - 功能: 格式化历史对话、控制长度
-        """
-    
-    def build_few_shot(self, template: str, examples: List[Example]) -> str:
-        """
-        Few-shot提示词构建
-        - 输入: 模板、示例列表
-        - 输出: 包含示例的提示词
-        - 功能: 构建少样本学习提示
-        """
-```
 
-**1.3 HistoryManager (历史管理器)**
-```python
-class HistoryManager:
-    def manage(self, messages: List[Message], max_length: int) -> List[Message]:
-        """
-        管理对话历史
-        - 输入: 消息列表、最大长度
-        - 输出: 裁剪后的消息列表
-        - 功能: 长度控制、重要消息保留、滑动窗口
-        """
-    
-    def summarize_history(self, messages: List[Message]) -> str:
-        """
-        压缩历史为摘要
-        - 输入: 消息列表
-        - 输出: 历史摘要
-        - 功能: 使用LLM生成历史摘要
-        """
-    
-    def get_recent(self, messages: List[Message], count: int) -> List[Message]:
-        """
-        获取最近消息
-        - 输入: 消息列表、数量
-        - 输出: 最近N条消息
-        - 功能: 快速获取最近对话
-        """
-```
+> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - NLP模块部分
 
-**1.4 CacheStrategy (缓存策略)**
-```python
-class CacheStrategy:
-    def get(self, key: str) -> Optional[str]:
-        """
-        获取缓存
-        - 输入: 缓存键(prompt hash)
-        - 输出: 缓存的响应或None
-        - 功能: 基于prompt的哈希值查找缓存
-        """
-    
-    def set(self, key: str, value: str, ttl: int):
-        """
-        设置缓存
-        - 输入: 键、值、过期时间
-        - 输出: 无
-        - 功能: 存储LLM响应,支持TTL
-        """
-```
+> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - File模块部分
 
-**1.5 RetryStrategy (重试策略)**
-```python
-class RetryStrategy:
-    def execute(self, func: Callable, max_retries: int, backoff: float) -> Any:
-        """
-        执行重试逻辑
-        - 输入: 函数、最大重试次数、退避系数
-        - 输出: 函数执行结果
-        - 功能: 指数退避、错误分类处理
-        """
-```
+> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - Algorithm模块部分
 
-#### 2. Storage模块
-```
-foundation/storage/
-├── atomic/
-│   ├── base.py                # 存储抽象基类
-│   ├── vector_store.py        # 向量存储接口
-│   ├── faiss_store.py         # Faiss实现
-│   ├── graph_store.py         # 图存储接口
-│   ├── falkordb_store.py      # FalkorDB实现
-│   └── hybrid_retriever.py    # 混合检索
-├── core/
-│   ├── models.py              # 数据模型
-│   ├── schema.py              # Schema定义
-│   ├── exceptions.py          # 异常定义
-│   └── validators.py          # 验证器
-└── pipeline/
-    ├── life_graph_pipeline.py # 生活图谱管道
-    └── work_graph_pipeline.py # 工作图谱管道
-```
-
-**核心原子能力详细说明**:
-
-**2.1 VectorStore (向量存储)**
-```python
-class VectorStore:
-    def add(self, id: str, vector: List[float], metadata: Dict) -> bool:
-        """
-        添加向量
-        - 输入: ID、向量、元数据
-        - 输出: 成功/失败
-        - 功能: 存储向量和关联元数据(文本、时间等)
-        """
-    
-    def batch_add(self, items: List[Tuple[str, List[float], Dict]]) -> bool:
-        """
-        批量添加向量
-        - 输入: (ID, 向量, 元数据)列表
-        - 输出: 成功/失败
-        - 功能: 批量存储提高效率
-        """
-    
-    def search(self, query_vector: List[float], top_k: int, filter: Dict) -> List[SearchResult]:
-        """
-        相似度检索
-        - 输入: 查询向量、Top-K、过滤条件
-        - 输出: 检索结果列表(包含分数、元数据)
-        - 功能: 余弦相似度计算、结果排序、元数据过滤
-        """
-    
-    def delete(self, id: str) -> bool:
-        """
-        删除向量
-        - 输入: 向量ID
-        - 输出: 成功/失败
-        - 功能: 从索引中移除向量
-        """
-    
-    def update_metadata(self, id: str, metadata: Dict) -> bool:
-        """
-        更新元数据
-        - 输入: ID、新元数据
-        - 输出: 成功/失败
-        - 功能: 更新向量关联的元数据
-        """
-```
-
-**2.2 GraphStore (图存储)**
-```python
-class GraphStore:
-    def add_node(self, node_type: str, properties: Dict) -> str:
-        """
-        添加节点
-        - 输入: 节点类型、属性字典
-        - 输出: 节点ID
-        - 功能: 创建图节点(如User、Memory、Todo、Document等)
-        - 示例: add_node('Memory', {'content': '...', 'emotion': 'happy'})
-        """
-    
-    def add_edge(self, from_id: str, to_id: str, edge_type: str, properties: Dict) -> str:
-        """
-        添加边(支持时间属性)
-        - 输入: 源节点ID、目标节点ID、边类型、属性
-        - 输出: 边ID
-        - 功能: 创建关系,支持create_time/invalid_time属性
-        - 示例: add_edge(user_id, entity_id, 'LIKES', 
-                        {'create_time': '2024-01-01', 'invalid_time': None})
-        """
-    
-    def query(self, cypher: str, params: Dict) -> List[Dict]:
-        """
-        Cypher查询
-        - 输入: Cypher查询语句、参数
-        - 输出: 查询结果列表
-        - 功能: 执行Cypher查询,支持模式匹配、关系遍历
-        - 示例: query("MATCH (u:User)-[r:LIKES]->(e) WHERE r.invalid_time IS NULL RETURN e")
-        """
-    
-    def find_neighbors(self, node_id: str, edge_type: str, direction: str, depth: int) -> List[Dict]:
-        """
-        查找邻居节点
-        - 输入: 节点ID、边类型、方向(in/out/both)、深度
-        - 输出: 邻居节点列表
-        - 功能: 多跳查询,支持方向控制
-        """
-    
-    def update_node(self, node_id: str, properties: Dict) -> bool:
-        """
-        更新节点
-        - 输入: 节点ID、属性
-        - 输出: 成功/失败
-        - 功能: 更新节点属性
-        """
-    
-    def update_edge(self, edge_id: str, properties: Dict) -> bool:
-        """
-        更新边(用于更新时间属性)
-        - 输入: 边ID、属性
-        - 输出: 成功/失败
-        - 功能: 更新边属性,常用于设置invalid_time标记关系失效
-        - 示例: update_edge(edge_id, {'invalid_time': '2024-12-31'})
-        """
-    
-    def delete_node(self, node_id: str, cascade: bool) -> bool:
-        """
-        删除节点
-        - 输入: 节点ID、是否级联删除
-        - 输出: 成功/失败
-        - 功能: 删除节点,可选级联删除相关边
-        """
-```
-
-**2.3 HybridRetriever (混合检索)**
-```python
-class HybridRetriever:
-    def __init__(self, vector_store: VectorStore, graph_store: GraphStore, 
-                 vector_weight: float = 0.6, graph_weight: float = 0.4):
-        """
-        初始化混合检索器
-        - 默认权重: Faiss 0.6 + Falkor 0.4
-        """
-    
-    def retrieve(self, query: str, query_vector: List[float], top_k: int) -> List[RetrievalResult]:
-        """
-        混合检索
-        - 输入: 查询文本、查询向量、Top-K
-        - 输出: 融合后的检索结果
-        - 流程:
-          1. 并行调用VectorStore.search()(语义相似)
-          2. 并行调用GraphStore基于NER构建的实体图谱检索(关系相关)
-          3. 加权融合: score = 0.6*vector_score + 0.4*graph_score
-          4. 重排序返回
-        """
-    
-    def fuse_scores(self, vector_results: List, graph_results: List) -> List[RetrievalResult]:
-        """
-        分数融合
-        - 输入: 向量检索结果、图检索结果
-        - 输出: 融合后的结果
-        - 功能: 加权融合算法、去重、重排序
-        """
-```
-
-**2.4 Schema定义**
-```python
-class GraphSchema:
-    """图谱Schema定义"""
-    
-    # 节点类型
-    NODE_TYPES = {
-        'User': ['user_id', 'name', 'created_at'],
-        'Memory': ['content', 'emotion', 'timestamp'],
-        'Entity': ['name', 'type', 'description'],  # NER提取的实体
-        'Document': ['title', 'content', 'type'],
-        'Todo': ['title', 'priority', 'status', 'deadline'],
-        'Session': ['session_id', 'start_time', 'end_time']
-    }
-    
-    # 边类型(都支持create_time/invalid_time)
-    EDGE_TYPES = {
-        'MENTIONS': 'Document/Memory -> Entity',  # 实体关系
-        'LIKES': 'User -> Entity',                # 喜好关系
-        'DEPENDS_ON': 'Todo -> Todo',             # 依赖关系
-        'RELATED_TO': 'Memory -> Memory',         # 记忆关联
-        'CONTAINS': 'Session -> Message',         # 包含关系
-    }
-```
-
-#### 3. NLP模块
-```
-foundation/nlp/
-├── atomic/
-│   ├── emotion_analyzer.py    # 情绪分析
-│   ├── entity_extractor.py    # 实体提取(NER)
-│   ├── intent_recognizer.py   # 意图识别
-│   └── summarizer.py          # 文本摘要
-└── core/
-    ├── models.py              # 数据模型
-    └── exceptions.py          # 异常定义
-```
-
-**核心原子能力**:
-- `EmotionAnalyzer.analyze()`: 情绪分析
-- `EntityExtractor.extract()`: 实体提取
-- `IntentClassifier.classify()`: 意图分类
-- `Summarizer.summarize()`: 文本摘要
-
-#### 4. File模块
-```
-foundation/file/
-├── atomic/
-│   ├── base.py                # 解析器基类
-│   ├── pdf_parser.py          # PDF解析
-│   ├── docx_parser.py         # Word解析
-│   ├── markdown_parser.py     # Markdown解析
-│   ├── text_parser.py         # 文本解析
-│   └── ppt_parser.py          # PPT解析
-├── core/
-│   ├── models.py              # 数据模型
-│   └── exceptions.py          # 异常定义
-└── pipeline/
-    └── document_pipeline.py   # 文档处理管道
-```
-
-**核心原子能力**:
-- `PDFParser.parse()`: PDF解析
-- `DocxParser.parse()`: Word解析
-- `MarkdownParser.parse()`: Markdown解析
-- `TextParser.parse()`: 文本解析
-- `PPTParser.parse()`: PPT解析
-
-#### 5. Algorithm模块
-```
-foundation/algorithm/
-├── text_similarity.py         # 文本相似度
-├── time_analyzer.py           # 时间分析
-├── todo_sorter.py             # 待办排序
-└── statistics.py              # 统计计算
-```
-
-**核心原子能力详细说明**:
-
-**5.1 SimilarityCalculator**
-```python
-class SimilarityCalculator:
-    def calculate(self, text1: str, text2: str) -> float:
-        """计算文本相似度 - 用于待办/文档去重"""
-    def find_duplicates(self, texts: List[str], threshold: float) -> List[Tuple]:
-        """查找重复文本"""
-```
-
-**5.2 TimeAnalyzer**
-```python
-class TimeAnalyzer:
-    def parse(self, text: str) -> TimeInfo:
-        """解析时间表达式 - 提取create_time/invalid_time"""
-    def extract_deadline(self, text: str) -> Optional[datetime]:
-        """提取截止时间"""
-    def calculate_duration(self, start: datetime, end: datetime) -> timedelta:
-        """计算时间跨度"""
-```
-
-**5.3 TopologicalSorter**
-```python
-class TopologicalSorter:
-    def sort(self, tasks: List[Task], dependencies: List[Tuple]) -> List[Task]:
-        """拓扑排序 - 处理待办依赖关系"""
-    def detect_cycle(self, dependencies: List[Tuple]) -> bool:
-        """检测循环依赖"""
-```
-
-**5.4 StatisticsCalculator**
-```python
-class StatisticsCalculator:
-    def calculate(self, data: List[float]) -> StatResult:
-        """计算统计指标(均值、中位数、标准差)"""
-    def calculate_completion_rate(self, todos: List[Todo]) -> float:
-        """计算完成率"""
-    def calculate_delay_rate(self, todos: List[Todo]) -> float:
-        """计算延期率"""
-    def calculate_efficiency_score(self, pattern: WorkPattern) -> float:
-        """计算效率分数"""
-```
-
-## 组合能力层 Capability Layer
+## 3. 组合能力层 Capability Layer
 
 > 🔧 **设计理念**: 组合能力层将多个原子能力组合起来,完成某个抽象的业务步骤。服务层通过编排这些组合能力实现完整业务流程。
 
-### Life场景能力
+### 3.1 组合能力架构视图
+
+组合能力层分为Life场景和Work场景两大类能力编排：
+
+```mermaid
+graph TB
+    subgraph CapabilityLayer["🔧 组合能力层 Capability Layer"]
+        subgraph LifeCapabilities["🏡 Life场景能力"]
+            direction TB
+            IR["IntentRecognizer<br/>意图识别器"]
+            CR["ContextRetriever<br/>上下文检索器"]
+            DG["DialogueGenerator<br/>对话生成器"]
+            ME["MemoryExtractor<br/>记忆提取器"]
+        end
+        
+        subgraph WorkCapabilities["💼 Work场景能力"]
+            direction TB
+            DP["DocumentParser<br/>文档解析器"]
+            PA["ProjectAnalyzer<br/>项目分析器"]
+            TP["TodoParser<br/>待办解析器"]
+            TM["TodoManager<br/>待办管理器"]
+            PtA["PatternAnalyzer<br/>模式分析器"]
+            AG["AdviceGenerator<br/>建议生成器"]
+        end
+        
+        Factory["CapabilityFactory<br/>能力工厂"]
+    end
+    
+    subgraph Foundation["⭐ 原子能力层"]
+        LLM["🧠 LLM"]
+        Storage["💾 Storage"]
+        NLP["📝 NLP"]
+        File["📄 File"]
+        Algorithm["⚙️ Algorithm"]
+    end
+    
+    %% Life场景依赖
+    LLM -.->|提供LLM调用| IR
+    LLM -.->|提供LLM调用| DG
+    LLM -.->|提供LLM调用| ME
+    Storage -.->|提供混合检索| CR
+    NLP -.->|提供NLP分析| ME
+    
+    %% Work场景依赖
+    File -.->|提供文档解析| DP
+    NLP -.->|提供实体提取| PA
+    LLM -.->|提供LLM分析| PA
+    LLM -.->|提供LLM解析| TP
+    Algorithm -.->|提供时间解析| TP
+    Storage -.->|提供图存储| TM
+    Algorithm -.->|提供拓扑排序| TM
+    Storage -.->|提供图查询| PtA
+    Algorithm -.->|提供统计计算| PtA
+    LLM -.->|提供LLM生成| AG
+    
+    %% 工厂管理
+    Factory -.->|创建| IR
+    Factory -.->|创建| CR
+    Factory -.->|创建| DG
+    Factory -.->|创建| ME
+    Factory -.->|创建| DP
+    Factory -.->|创建| PA
+    Factory -.->|创建| TP
+    Factory -.->|创建| TM
+    Factory -.->|创建| PtA
+    Factory -.->|创建| AG
+    
+    style LifeCapabilities fill:#fff4e1
+    style WorkCapabilities fill:#e3f2fd
+    style Factory fill:#f3e5f5
+    style Foundation fill:#e8f5e9
+```
+
+### 3.2 Life场景能力
 
 | 组合能力 | 组合的原子能力 | 主要功能 |
 |----------|-----------------|----------|
@@ -844,7 +642,7 @@ class StatisticsCalculator:
 | **DialogueGenerator**<br/>对话生成器 | LLMCaller + StyleAnalyzer + PromptBuilder | 生成个性化回复,模仿用户风格 |
 | **MemoryExtractor**<br/>记忆提取器 | LLMCaller + EmotionAnalyzer +<br/>EntityExtractor + TimeAnalyzer | 提取对话中的记忆点<br/>识别情绪和事件<br/>构建带时间属性的图谱 |
 
-### Work场景能力
+### 3.3 Work场景能力
 
 | 组合能力 | 组合的原子能力 | 主要功能 |
 |----------|-----------------|----------|
@@ -855,299 +653,420 @@ class StatisticsCalculator:
 | **PatternAnalyzer**<br/>模式分析器 | GraphStore + StatisticsCalculator +<br/>多个指标计算器 | 分析工作模式<br/>计算完成率、延期率、效率分数 |
 | **AdviceGenerator**<br/>建议生成器 | LLMCaller + PromptBuilder +<br/>MarkdownFormatter | 生成个性化工作建议 |
 
-### 能力工厂模式
+### 3.4 能力工厂模式
 
-使用工厂模式统一管理组合能力的创建和依赖注入:
+使用 `CapabilityFactory` 统一管理组合能力的创建和依赖注入：
 
-```python
-class CapabilityFactory:
-    """能力工厂 - 统一管理组合能力的创建和依赖注入"""
+```mermaid
+graph LR
+    subgraph Factory["CapabilityFactory"]
+        direction TB
+        F1["get_intent_recognizer()"]
+        F2["get_context_retriever()"]
+        F3["get_dialogue_generator()"]
+        F4["get_memory_extractor()"]
+        F5["get_document_parser()"]
+        F6["get_project_analyzer()"]
+        F7["get_todo_parser()"]
+        F8["get_todo_manager()"]
+        F9["get_pattern_analyzer()"]
+        F10["get_advice_generator()"]
+    end
     
-    @staticmethod
-    def get_intent_recognizer() -> IntentRecognizer:
-        llm = LLMCaller()
-        return IntentRecognizer(llm)
+    subgraph Services["服务层"]
+        ChatService
+        WorkProjectService
+        WorkTodoService
+        WorkAdviceService
+    end
     
-    @staticmethod
-    def get_context_retriever() -> ContextRetriever:
-        vector_store = FaissStore()
-        graph_store = FalkorDBStore()
-        hybrid = HybridRetriever(vector_store, graph_store, weights=(0.6, 0.4))
-        return ContextRetriever(hybrid)
+    ChatService -->|获取能力| F1
+    ChatService -->|获取能力| F2
+    ChatService -->|获取能力| F3
+    ChatService -->|获取能力| F4
     
-    # ... 其他能力的工厂方法
+    WorkProjectService -->|获取能力| F5
+    WorkProjectService -->|获取能力| F6
+    
+    WorkTodoService -->|获取能力| F7
+    WorkTodoService -->|获取能力| F8
+    
+    WorkAdviceService -->|获取能力| F9
+    WorkAdviceService -->|获取能力| F10
+    
+    style Factory fill:#f3e5f5
+    style Services fill:#e1f5fe
 ```
+
+**工厂模式价值**：
+- 🔌 **统一依赖管理**: 服务层无需关心能力实例创建细节
+- 🔄 **依赖注入**: 自动处理能力之间的依赖关系
+- 🧪 **可测试性**: 支持Mock替换,便于单元测试
+- 🎯 **单一入口**: 简化服务层调用,提升代码可维护性
+
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - 能力工厂模式
 
 ---
 
-## 服务层 Service Layer
+## 4. 服务层 Service Layer
 
 > 🚀 **设计理念**: 服务层编排组合能力,实现完整的业务流程，直接对外提供服务。用户只需调用Service层接口,底层Capability和Foundation由系统自动编排执行。
 
-### ChatService 生活对话服务
-```
-capability/life/
-├── intent_recognizer.py       # 意图识别器
-├── context_retriever.py       # 上下文检索器
-├── dialogue_generator.py      # 对话生成器
-└── memory_extractor.py        # 记忆提取器
-```
+### 4.1 服务层架构视图
 
-**组合能力实现示例**:
+服务层提供四个核心服务,分别对应生活和工作场景：
 
-```python
-class IntentRecognizer:
-    """IntentRecognizer: 组合 LLMCaller + IntentClassifier"""
-    def recognize(self, message: str) -> Intent:
-        # 1. 调用LLM分析意图
-        # 2. 使用分类器归类
-        # 3. 返回意图对象
-        pass
-
-class ContextRetriever:
-    """ContextRetriever: 组合 VectorStore + GraphStore + HybridRetriever"""
-    def retrieve(self, query: str, session_id: str) -> List[Context]:
-        # 1. 向量检索相似对话
-        # 2. 图谱检索相关记忆
-        # 3. 混合融合排序(Faiss 0.6 + Falkor 0.4)
-        # 4. 返回上下文列表
-        pass
-
-class DialogueGenerator:
-    """DialogueGenerator: 组合 LLMCaller + StyleAnalyzer + PromptBuilder"""
-    def generate(self, context: Context, message: str) -> str:
-        # 1. 分析用户风格
-        # 2. 构建个性化提示词
-        # 3. 调用LLM生成回复
-        # 4. 返回生成内容
-        pass
-
-class MemoryExtractor:
-    """MemoryExtractor: 组合 LLMCaller + EmotionAnalyzer + EntityExtractor + TimeAnalyzer"""
-    def extract(self, conversation: Conversation) -> List[Memory]:
-        # 1. 调用LLM提取记忆点
-        # 2. 情绪分析
-        # 3. 实体提取(基于NER构建实体图谱)
-        # 4. 时间解析(构建带create_time/invalid_time的图边)
-        # 5. 返回记忆对象列表
-        pass
-```
-
-#### 2. Work能力模块
-```
-capability/work/
-├── document_parser.py         # 文档解析器
-├── project_analyzer.py        # 项目分析器
-├── todo_parser.py             # 待办解析器
-├── todo_manager.py            # 待办管理器
-├── pattern_analyzer.py        # 模式分析器
-└── advice_generator.py        # 建议生成器
-```
-
-**组合能力实现示例**:
-
-```python
-class DocumentParser:
-    """DocumentParser: 组合多个FileParser"""
-    def parse(self, files: List[File]) -> List[Document]:
-        # 1. 识别文件类型
-        # 2. 调用对应解析器(PDF/Docx/Markdown/Text/PPT)
-        # 3. 标准化输出
-        # 4. 返回文档列表
-        pass
-
-class ProjectAnalyzer:
-    """ProjectAnalyzer: 组合 EntityExtractor + LLMCaller + StructureAnalyzer"""
-    def analyze(self, documents: List[Document]) -> ProjectReport:
-        # 1. 提取实体(基于NER构建(Document)-[:MENTIONS]->(Entity)图谱)
-        # 2. 分析结构
-        # 3. 调用LLM生成分析
-        # 4. 返回报告对象
-        pass
-
-class TodoParser:
-    """TodoParser: 组合 LLMCaller + TimeAnalyzer + PriorityExtractor"""
-    def parse(self, description: str) -> List[Todo]:
-        # 1. 调用LLM解析任务
-        # 2. 提取时间信息(create_time/invalid_time)
-        # 3. 提取优先级
-        # 4. 返回待办列表
-        pass
-
-class TodoManager:
-    """TodoManager: 组合 GraphStore + SimilarityCalculator + TopologicalSorter"""
-    def manage(self, new_todos: List[Todo]) -> List[Todo]:
-        # 1. 查询已有待办
-        # 2. 去重合并
-        # 3. 拓扑排序
-        # 4. 返回排序结果
-        pass
-
-class PatternAnalyzer:
-    """PatternAnalyzer: 组合 GraphStore + StatisticsCalculator + 多个指标计算器"""
-    def analyze(self, user_id: str) -> WorkPattern:
-        # 1. 查询工作数据
-        # 2. 计算完成率
-        # 3. 计算延期率
-        # 4. 计算效率分数
-        # 5. 返回模式对象
-        pass
-
-class AdviceGenerator:
-    """AdviceGenerator: 组合 LLMCaller + PromptBuilder + MarkdownFormatter"""
-    def generate(self, pattern: WorkPattern) -> str:
-        # 1. 构建提示词
-        # 2. 调用LLM生成建议
-        # 3. 格式化为Markdown
-        # 4. 返回建议文本
-        pass
-```
-
-#### 3. 能力工厂
-```
-capability/factory.py          # 能力工厂(依赖注入)
-```
-
-**工厂模式实现**:
-```python
-class CapabilityFactory:
-    """能力工厂 - 统一管理组合能力的创建和依赖注入"""
-    
-    @staticmethod
-    def get_intent_recognizer() -> IntentRecognizer:
-        llm = LLMCaller()
-        return IntentRecognizer(llm)
-    
-    @staticmethod
-    def get_context_retriever() -> ContextRetriever:
-        vector_store = FaissStore()
-        graph_store = FalkorDBStore()
-        hybrid = HybridRetriever(vector_store, graph_store, weights=(0.6, 0.4))
-        return ContextRetriever(hybrid)
-    
-    @staticmethod
-    def get_dialogue_generator() -> DialogueGenerator:
-        llm = LLMCaller()
-        return DialogueGenerator(llm)
-    
-    @staticmethod
-    def get_memory_extractor() -> MemoryExtractor:
-        llm = LLMCaller()
-        emotion = EmotionAnalyzer()
-        entity = EntityExtractor()
-        time = TimeAnalyzer()
-        return MemoryExtractor(llm, emotion, entity, time)
-    
-    # ... Work场景能力工厂方法
-```
-
-### 服务层(Service Layer)详细设计
-
-```
-service/
-├── life/
-│   └── life_chat_service.py   # 生活对话服务
-└── work/
-    ├── project.py             # 项目分析服务
-    ├── todo.py                # 待办管理服务
-    └── suggest.py             # 工作建议服务
-```
-
-**服务层实现示例**:
-
-```python
-class ChatService:
-    """生活对话服务 - 编排生活场景完整流程"""
-    
-    def __init__(self):
-        # 通过工厂获取所需能力
-        self.intent_recognizer = CapabilityFactory.get_intent_recognizer()
-        self.context_retriever = CapabilityFactory.get_context_retriever()
-        self.dialogue_generator = CapabilityFactory.get_dialogue_generator()
-        self.memory_extractor = CapabilityFactory.get_memory_extractor()
-    
-    def chat(self, message: str, session_id: str) -> str:
-        """对话接口"""
-        # 步骤1: 意图识别
-        intent = self.intent_recognizer.recognize(message)
+```mermaid
+graph TB
+    subgraph ServiceLayer["🚀 服务层 Service Layer"]
+        subgraph LifeServices["🏡 生活场景服务"]
+            CS["ChatService<br/>💬 生活对话服务"]
+        end
         
-        # 步骤2: 上下文检索
-        context = self.context_retriever.retrieve(message, session_id)
-        
-        # 步骤3: 对话生成
-        response = self.dialogue_generator.generate(context, message)
-        
-        # 步骤4: 保存消息(内置在generator中)
-        
-        return response
+        subgraph WorkServices["💼 工作场景服务"]
+            WPS["WorkProjectService<br/>📁 项目分析服务"]
+            WTS["WorkTodoService<br/>✅ 待办管理服务"]
+            WAS["WorkAdviceService<br/>💡 工作建议服务"]
+        end
+    end
     
-    def end_session(self, session_id: str):
-        """结束会话"""
-        # 步骤5: 记忆提取
-        conversation = self._get_conversation(session_id)
-        memories = self.memory_extractor.extract(conversation)
-        
-        # 保存到生活图谱(包含实体关系和时间属性)
-        self._save_to_life_graph(memories)
-
-
-class WorkProjectService:
-    """项目分析服务 - 编排项目分析流程"""
+    subgraph Capabilities["🔧 组合能力层"]
+        direction LR
+        IR[IntentRecognizer]
+        CR[ContextRetriever]
+        DG[DialogueGenerator]
+        ME[MemoryExtractor]
+        DP[DocumentParser]
+        PA[ProjectAnalyzer]
+        TP[TodoParser]
+        TM[TodoManager]
+        PtA[PatternAnalyzer]
+        AG[AdviceGenerator]
+    end
     
-    def __init__(self):
-        self.document_parser = CapabilityFactory.get_document_parser()
-        self.project_analyzer = CapabilityFactory.get_project_analyzer()
+    %% ChatService编排
+    CS ==>|1.意图识别| IR
+    CS ==>|2.上下文检索| CR
+    CS ==>|3.对话生成| DG
+    CS ==>|4.记忆提取| ME
     
-    def analyze_project(self, files: List[File]) -> str:
-        """项目分析接口"""
-        # 步骤1-2: 文档解析与合并
-        documents = self.document_parser.parse(files)
-        
-        # 步骤3-5: 实体提取、分析、报告生成
-        report = self.project_analyzer.analyze(documents)
-        
-        return report.to_markdown()
-
-
-class WorkTodoService:
-    """待办管理服务 - 编排待办管理流程"""
+    %% WorkProjectService编排
+    WPS ==>|1.文档解析| DP
+    WPS ==>|2.项目分析| PA
     
-    def __init__(self):
-        self.todo_parser = CapabilityFactory.get_todo_parser()
-        self.todo_manager = CapabilityFactory.get_todo_manager()
+    %% WorkTodoService编排
+    WTS ==>|1.任务解析| TP
+    WTS ==>|2.待办管理| TM
     
-    def add_todos(self, description: str, user_id: str) -> List[Todo]:
-        """添加待办接口"""
-        # 步骤1: 任务解析
-        new_todos = self.todo_parser.parse(description)
-        
-        # 步骤2-5: 查询、合并、排序、持久化
-        sorted_todos = self.todo_manager.manage(new_todos)
-        
-        return sorted_todos
-
-
-class WorkAdviceService:
-    """工作建议服务 - 编排建议生成流程"""
+    %% WorkAdviceService编排
+    WAS ==>|1.模式分析| PtA
+    WAS ==>|2.建议生成| AG
     
-    def __init__(self):
-        self.pattern_analyzer = CapabilityFactory.get_pattern_analyzer()
-        self.advice_generator = CapabilityFactory.get_advice_generator()
-    
-    def generate_advice(self, user_id: str) -> str:
-        """生成建议接口"""
-        # 步骤1-2: 数据收集和模式分析
-        pattern = self.pattern_analyzer.analyze(user_id)
-        
-        # 步骤3-4: 建议生成和格式化
-        advice = self.advice_generator.generate(pattern)
-        
-        return advice
+    style LifeServices fill:#fff4e1
+    style WorkServices fill:#e3f2fd
+    style Capabilities fill:#fff9c4
 ```
+
+### 4.2 ChatService 生活对话服务
+
+**服务职责**: 提供个性化对话能力,模仿用户风格,管理对话记忆
+
+**能力编排流程**:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ChatService
+    participant IntentRecognizer
+    participant ContextRetriever
+    participant DialogueGenerator
+    participant MemoryExtractor
+    participant GraphStore
+    
+    User->>ChatService: chat(message, session_id)
+    
+    ChatService->>IntentRecognizer: recognize(message)
+    IntentRecognizer-->>ChatService: Intent类型
+    
+    ChatService->>ContextRetriever: retrieve(message, session_id)
+    ContextRetriever->>ContextRetriever: 并行向量检索(Faiss 0.6)
+    ContextRetriever->>ContextRetriever: 并行图谱检索(Falkor 0.4)
+    ContextRetriever-->>ChatService: 融合后的上下文
+    
+    ChatService->>DialogueGenerator: generate(context, message)
+    DialogueGenerator-->>ChatService: 个性化回复
+    
+    ChatService-->>User: 返回回复
+    
+    Note over User,ChatService: 会话结束时
+    User->>ChatService: end_session(session_id)
+    ChatService->>MemoryExtractor: extract(conversation)
+    MemoryExtractor->>MemoryExtractor: 提取记忆点+情绪+实体+时间
+    MemoryExtractor->>GraphStore: 保存到生活图谱(含时间属性)
+    GraphStore-->>ChatService: 保存成功
+```
+
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - ChatService实现
+
+### 4.3 WorkProjectService 项目分析服务
+
+**服务职责**: 分析项目文档,提取核心要素,生成结构化报告
+
+**能力编排流程**:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WorkProjectService
+    participant DocumentParser
+    participant ProjectAnalyzer
+    participant EntityExtractor
+    participant LLM
+    participant GraphStore
+    
+    User->>WorkProjectService: analyze_project(files)
+    
+    WorkProjectService->>DocumentParser: parse(files)
+    DocumentParser->>DocumentParser: 识别格式(PDF/Word/MD/PPT)
+    DocumentParser->>DocumentParser: 多格式解析
+    DocumentParser-->>WorkProjectService: Document列表
+    
+    WorkProjectService->>ProjectAnalyzer: analyze(documents)
+    ProjectAnalyzer->>EntityExtractor: extract_entities(documents)
+    EntityExtractor-->>ProjectAnalyzer: 实体列表
+    
+    ProjectAnalyzer->>GraphStore: 构建(Document)-[:MENTIONS]->(Entity)
+    GraphStore-->>ProjectAnalyzer: 图谱构建完成
+    
+    ProjectAnalyzer->>LLM: 生成分析报告
+    LLM-->>ProjectAnalyzer: 报告内容
+    
+    ProjectAnalyzer-->>WorkProjectService: ProjectReport
+    WorkProjectService-->>User: Markdown报告
+```
+
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - WorkProjectService实现
+
+### 4.4 WorkTodoService 待办管理服务
+
+**服务职责**: 智能解析任务,去重合并,拓扑排序,持久化管理
+
+**能力编排流程**:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WorkTodoService
+    participant TodoParser
+    participant TodoManager
+    participant SimilarityCalculator
+    participant TopologicalSorter
+    participant GraphStore
+    
+    User->>WorkTodoService: add_todos(description, user_id)
+    
+    WorkTodoService->>TodoParser: parse(description)
+    TodoParser->>TodoParser: LLM解析任务
+    TodoParser->>TodoParser: 提取时间(create_time/invalid_time)
+    TodoParser->>TodoParser: 提取优先级
+    TodoParser-->>WorkTodoService: Todo列表
+    
+    WorkTodoService->>TodoManager: manage(new_todos)
+    TodoManager->>GraphStore: 查询已有待办
+    GraphStore-->>TodoManager: 现有待办列表
+    
+    TodoManager->>SimilarityCalculator: 去重检测
+    SimilarityCalculator-->>TodoManager: 去重后列表
+    
+    TodoManager->>TopologicalSorter: 拓扑排序(处理依赖)
+    TopologicalSorter-->>TodoManager: 排序结果
+    
+    TodoManager->>GraphStore: 持久化保存
+    GraphStore-->>TodoManager: 保存成功
+    
+    TodoManager-->>WorkTodoService: 排序后待办列表
+    WorkTodoService-->>User: 返回待办列表
+```
+
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - WorkTodoService实现
+
+### 4.5 WorkAdviceService 工作建议服务
+
+**服务职责**: 分析工作模式,生成个性化改进建议
+
+**能力编排流程**:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WorkAdviceService
+    participant PatternAnalyzer
+    participant AdviceGenerator
+    participant GraphStore
+    participant StatisticsCalculator
+    participant LLM
+    
+    User->>WorkAdviceService: generate_advice(user_id)
+    
+    WorkAdviceService->>PatternAnalyzer: analyze(user_id)
+    PatternAnalyzer->>GraphStore: 查询工作数据
+    GraphStore-->>PatternAnalyzer: 待办历史数据
+    
+    PatternAnalyzer->>StatisticsCalculator: 计算完成率
+    StatisticsCalculator-->>PatternAnalyzer: 完成率指标
+    
+    PatternAnalyzer->>StatisticsCalculator: 计算延期率
+    StatisticsCalculator-->>PatternAnalyzer: 延期率指标
+    
+    PatternAnalyzer->>StatisticsCalculator: 计算效率分数
+    StatisticsCalculator-->>PatternAnalyzer: 效率分数
+    
+    PatternAnalyzer-->>WorkAdviceService: WorkPattern对象
+    
+    WorkAdviceService->>AdviceGenerator: generate(pattern)
+    AdviceGenerator->>AdviceGenerator: 构建提示词
+    AdviceGenerator->>LLM: 生成建议
+    LLM-->>AdviceGenerator: 建议内容
+    AdviceGenerator->>AdviceGenerator: Markdown格式化
+    AdviceGenerator-->>WorkAdviceService: Markdown建议
+    
+    WorkAdviceService-->>User: 返回建议
+```
+
+> 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - WorkAdviceService实现
+### 4.6 服务编排总览
+
+四个服务的编排逻辑对比：
+
+| 服务 | 编排的组合能力 | 流程步骤 | 输入/输出 |
+|------|-----------------|----------|-------------|
+| **ChatService** | IntentRecognizer +<br/>ContextRetriever +<br/>DialogueGenerator +<br/>MemoryExtractor | 1. 意图识别<br/>2. 上下文检索<br/>3. 对话生成<br/>4. 记忆提取(会话结束) | 输入: message + session_id<br/>输出: 个性化回复 |
+| **WorkProjectService** | DocumentParser +<br/>ProjectAnalyzer | 1. 文档解析<br/>2. 实体提取<br/>3. 项目分析<br/>4. 报告生成 | 输入: 文件列表<br/>输出: Markdown报告 |
+| **WorkTodoService** | TodoParser +<br/>TodoManager | 1. 任务解析<br/>2. 去重合并<br/>3. 拓扑排序<br/>4. 持久化 | 输入: 任务描述<br/>输出: 排序后待办列表 |
+| **WorkAdviceService** | PatternAnalyzer +<br/>AdviceGenerator | 1. 数据收集<br/>2. 模式分析<br/>3. 建议生成<br/>4. Markdown格式化 | 输入: user_id<br/>输出: Markdown建议 |
+
+> 💡 **代码实现**: 详细的服务层代码示例请参考 [codedetail.md](./codedetail.md) - 服务层部分
 
 ---
 
-## 架构设计原则
+## 5. 数据流转与业务流程
+
+### 5.1 生活场景数据流
+
+从用户输入到记忆沉淀的完整数据流转：
+
+```mermaid
+graph LR
+    subgraph Input["📥 输入层"]
+        U["用户消息<br/>message + session_id"]
+    end
+    
+    subgraph Process["⚙️ 处理层"]
+        direction TB
+        I["意图识别<br/>Intent"]
+        R["混合检索<br/>Faiss 0.6 + Falkor 0.4"]
+        G["对话生成<br/>风格模仿"]
+        M["记忆提取<br/>情绪+实体+时间"]
+    end
+    
+    subgraph Storage["💾 存储层"]
+        direction TB
+        V["向量存储<br/>Faiss"]
+        Gr["生活图谱<br/>FalkorDB<br/>(Memory)-[:MENTIONS]->(Entity)<br/>边属性: create_time/invalid_time"]
+    end
+    
+    subgraph Output["📤 输出层"]
+        Res["个性化回复"]
+    end
+    
+    U -->|输入| I
+    I -->|意图| R
+    R -->|查询| V
+    R -->|查询| Gr
+    V -->|上下文| G
+    Gr -->|上下文| G
+    G -->|生成| Res
+    
+    U -.->|会话结束| M
+    M -.->|保存| Gr
+    M -.->|向量化| V
+    
+    style Input fill:#e8f5e9
+    style Process fill:#fff9c4
+    style Storage fill:#e1f5fe
+    style Output fill:#f3e5f5
+```
+
+**关键特性**:
+- 🔄 **混合检索**: 并行调用向量(语义)和图谱(关系),加权融合0.6+0.4
+- ⏰ **时间属性**: 图边记录 create_time(开始喜欢) 和 invalid_time(不再喜欢)
+- 🧠 **记忆沉淀**: 会话结束时提取记忆,构建实体图谱
+
+### 5.2 工作场景数据流
+
+从文档分析到工作建议的完整数据流转：
+
+```mermaid
+graph TB
+    subgraph Input["📥 输入层"]
+        Files["项目文档<br/>PDF/Word/MD/PPT"]
+        Tasks["任务描述<br/>自然语言"]
+    end
+    
+    subgraph Parse["📄 解析层"]
+        DP["文档解析<br/>多格式支持"]
+        TP["任务解析<br/>LLM+时间提取"]
+    end
+    
+    subgraph Analysis["🔍 分析层"]
+        direction TB
+        EA["实体提取<br/>NER"]
+        SA["相似度计算<br/>去重"]
+        TopoSort["拓扑排序<br/>依赖分析"]
+        Pattern["模式分析<br/>完成率+延期率+效率"]
+    end
+    
+    subgraph Storage["💾 存储层"]
+        direction TB
+        WorkGraph["工作图谱<br/>FalkorDB<br/>(Document)-[:MENTIONS]->(Entity)<br/>(Todo)-[:DEPENDS_ON]->(Todo)<br/>边属性: create_time/invalid_time"]
+    end
+    
+    subgraph Generation["✨ 生成层"]
+        Report["项目报告<br/>Markdown"]
+        TodoList["待办列表<br/>排序后"]
+        Advice["工作建议<br/>Markdown"]
+    end
+    
+    Files -->|解析| DP
+    DP -->|文档| EA
+    EA -->|实体| WorkGraph
+    EA -->|分析| Report
+    
+    Tasks -->|解析| TP
+    TP -->|待办| SA
+    SA -->|去重| TopoSort
+    TopoSort -->|排序| WorkGraph
+    WorkGraph -->|持久化| TodoList
+    
+    WorkGraph -->|查询| Pattern
+    Pattern -->|分析| Advice
+    
+    style Input fill:#e8f5e9
+    style Parse fill:#fff4e1
+    style Analysis fill:#fff9c4
+    style Storage fill:#e1f5fe
+    style Generation fill:#f3e5f5
+```
+
+**关键特性**:
+- 📊 **实体图谱**: 基于NER构建 (Document)-[:MENTIONS]->(Entity) 关系
+- 🔗 **依赖管理**: (Todo)-[:DEPENDS_ON]->(Todo) 支持拓扑排序
+- ⏰ **时间属性**: 图边记录 create_time(开始时间) 和 invalid_time(完成时间)
+- 📈 **模式分析**: 统计完成率、延期率、效率分数
+
+---
+
+## 6. 架构设计原则
 
 ### 1. 分层职责
 
