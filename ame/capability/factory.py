@@ -28,8 +28,11 @@ from .life import (
     MemoryExtractor,
 )
 from .work import (
+    DocumentParser,
     ProjectAnalyzer,
+    TodoParser,
     TodoManager,
+    PatternAnalyzer,
     AdviceGenerator,
 )
 
@@ -518,6 +521,93 @@ class CapabilityFactory:
     
     # ========== Capability Layer - Work Capabilities ==========
     
+    def create_document_parser(
+        self,
+        use_pdfplumber: bool = False,
+        llm_caller: Optional[LLMCallerBase] = None,
+        cache_key: Optional[str] = None
+    ) -> DocumentParser:
+        """创建文档解析器
+        
+        Args:
+            use_pdfplumber: PDF解析是否使用pdfplumber
+            llm_caller: LLM调用器(用于实体提取)
+            cache_key: 缓存键
+            
+        Returns:
+            文档解析器实例
+        """
+        if cache_key and cache_key in self._cache:
+            logger.debug(f"复用缓存的文档解析器: {cache_key}")
+            return self._cache[cache_key]
+        
+        entity_extractor = None
+        if llm_caller:
+            entity_extractor = self.create_entity_extractor(
+                llm_caller=llm_caller,
+                enable_jieba=True
+            )
+        
+        parser = DocumentParser(
+            use_pdfplumber=use_pdfplumber,
+            entity_extractor=entity_extractor
+        )
+        
+        if cache_key:
+            self._cache[cache_key] = parser
+        
+        return parser
+    
+    def create_todo_parser(
+        self,
+        llm_caller: Optional[LLMCallerBase] = None,
+        cache_key: Optional[str] = None
+    ) -> TodoParser:
+        """创建待办解析器
+        
+        Args:
+            llm_caller: LLM调用器(可选)
+            cache_key: 缓存键
+            
+        Returns:
+            待办解析器实例
+        """
+        if cache_key and cache_key in self._cache:
+            logger.debug(f"复用缓存的待办解析器: {cache_key}")
+            return self._cache[cache_key]
+        
+        parser = TodoParser(llm_caller=llm_caller)
+        
+        if cache_key:
+            self._cache[cache_key] = parser
+        
+        return parser
+    
+    def create_pattern_analyzer(
+        self,
+        graph_store: GraphStoreBase,
+        cache_key: Optional[str] = None
+    ) -> PatternAnalyzer:
+        """创建模式分析器
+        
+        Args:
+            graph_store: 图存储实例
+            cache_key: 缓存键
+            
+        Returns:
+            模式分析器实例
+        """
+        if cache_key and cache_key in self._cache:
+            logger.debug(f"复用缓存的模式分析器: {cache_key}")
+            return self._cache[cache_key]
+        
+        analyzer = PatternAnalyzer(graph_store=graph_store)
+        
+        if cache_key:
+            self._cache[cache_key] = analyzer
+        
+        return analyzer
+    
     def create_project_analyzer(
         self,
         api_key: str,
@@ -702,7 +792,7 @@ class CapabilityFactory:
     ) -> Dict[str, Any]:
         """创建Work能力包（预设组合）
         
-        包含：项目分析器、待办管理器、建议生成器
+        包含：文档解析器、待办解析器、项目分析器、待办管理器、模式分析器、建议生成器
         
         Args:
             llm_api_key: LLM API密钥
@@ -717,7 +807,32 @@ class CapabilityFactory:
         Returns:
             Work能力字典
         """
+        # 创建共享的LLM调用器和图存储
+        llm_caller = self.create_llm_caller(
+            api_key=llm_api_key,
+            model=llm_model,
+            base_url=llm_base_url,
+            cache_key=f"{cache_prefix}_llm"
+        )
+        
+        graph_store = self.create_graph_store(
+            host=graph_host,
+            port=graph_port,
+            graph_name=graph_name,
+            password=graph_password,
+            cache_key=f"{cache_prefix}_graph"
+        )
+        
         package = {
+            "document_parser": self.create_document_parser(
+                use_pdfplumber=False,
+                llm_caller=llm_caller,
+                cache_key=f"{cache_prefix}_document_parser"
+            ),
+            "todo_parser": self.create_todo_parser(
+                llm_caller=llm_caller,
+                cache_key=f"{cache_prefix}_todo_parser"
+            ),
             "project_analyzer": self.create_project_analyzer(
                 api_key=llm_api_key,
                 model=llm_model,
@@ -733,6 +848,10 @@ class CapabilityFactory:
                 graph_name=graph_name,
                 graph_password=graph_password,
                 cache_key=f"{cache_prefix}_todo_manager"
+            ),
+            "pattern_analyzer": self.create_pattern_analyzer(
+                graph_store=graph_store,
+                cache_key=f"{cache_prefix}_pattern_analyzer"
             ),
             "advice_generator": self.create_advice_generator(
                 api_key=llm_api_key,
