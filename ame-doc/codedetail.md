@@ -4,7 +4,8 @@
 
 > 📋 **文档说明**: 
 > - 包含完整的项目目录结构
-> - 遵循**模块层+原子层**的两层架构设计
+> - 遵循**模块抽象层 + 原子能力层**的四层架构设计
+> - 采用**扩平化目录结构**，通过命名约定区分职责
 > - 提供各层详细的接口定义和代码示例
 > - 所有代码示例均可直接参考使用
 > - 强调**自下而上**的能力实现方式
@@ -15,15 +16,16 @@
 
 1. [完整项目目录结构](#完整项目目录结构)
    - [1.1 目录架构总览](#目录架构总览)
-   - [1.2 原子能力层目录](#原子能力层目录)
+   - [1.2 基础能力层目录](#基础能力层目录)
    - [1.3 组合能力层目录](#组合能力层目录)
    - [1.4 服务层目录](#服务层目录)
-2. [原子能力层代码实现](#原子能力层代码实现)
+2. [基础能力层代码实现](#基础能力层代码实现)
    - [2.1 LLM模块](#llm模块)
-   - [2.2 Storage模块](#storage模块)
-   - [2.3 NLP模块](#nlp模块)
-   - [2.4 File模块](#file模块)
-   - [2.5 Algorithm模块](#algorithm模块)
+   - [2.2 Vector模块](#vector模块)
+   - [2.3 Graph模块](#graph模块)
+   - [2.4 NLP模块](#nlp模块)
+   - [2.5 File模块](#file模块)
+   - [2.6 Algorithm模块](#algorithm模块)
 3. [组合能力层代码实现](#组合能力层代码实现)
    - [3.1 Life场景能力](#life场景能力)
    - [3.2 Work场景能力](#work场景能力)
@@ -40,7 +42,12 @@
 
 ## 1. 完整项目目录结构
 
-> 💡 **架构理念**: 目录结构遵循**自下而上**的能力提供方式,从原子能力层向上构建组合能力,最终在服务层对外提供完整功能
+> 💡 **架构理念**: 目录结构遵循**自下而上**的能力提供方式，从原子能力层向上构建模块抽象，再组合成能力，最终在服务层对外提供完整功能
+
+> 📌 **设计原则**: 
+> - **扩平化设计**: 每个模块目录内文件直接存放，无多层嵌套
+> - **命名约定**: 通过文件名区分职责（`*_caller.py`, `*_store.py`, `*_manager.py`等）
+> - **模块分离**: 每个模块自包含 `models.py` 统一管理数据类
 
 ### 1.1 目录架构总览
 
@@ -58,86 +65,122 @@ another-me/
 └── README.md
 ```
 
-### 1.2 原子能力层目录
+### 1.2 基础能力层目录
 
-> ⭐ **设计理念**: 原子能力层采用**模块层 + 原子层**两层设计,提供最小粒度的基础能力
+> 🏛️ **设计理念**: 基础能力层采用**模块抽象层 + 原子能力层**两层设计，提供最小粒度的基础能力
+
+> 📁 **模块内部结构**: 每个模块采用 **utils + core + components** 三层结构
+
+**模块内部职责划分**：
+- **utils/**: 通用工具层
+  - `models.py`: 数据模型定义
+  - `exceptions.py`: 异常类定义
+  
+- **core/**: 核心实现层（原子能力层）
+  - `base.py`: **抽象基类**（定义接口契约，保证扩展性）
+  - 第三方服务调用器：`*_caller.py`（如 `openai_caller.py`）
+  - 存储实现：`*_store.py`（如 `faiss_store.py`）
+  - 解析器：`*_parser.py`（如 `pdf_parser.py`）
+  - 分析器：`*_analyzer.py`（如 `emotion_analyzer.py`）
+  
+- **components/**: 组合组件层（模块抽象层）
+  - 构建器：`*_builder.py`（如 `prompt_builder.py`）
+  - 管理器：`*_manager.py`（如 `history_manager.py`）
+  - 检索器：`*_retriever.py`（如 `hybrid_retriever.py`）
 
 ```
-foundation/                     # 原子能力层
+foundation/                     # 基础能力层
 ├── __init__.py
-├── llm/                       # 🧠 LLM模块层
+├── llm/                       # 🧠 LLM模块
 │   ├── __init__.py
-│   ├── atomic/                # 原子层实现
-│   │   ├── __init__.py
-│   │   ├── base.py           # LLM调用抽象基类
-│   │   ├── openai_caller.py  # OpenAI实现
-│   │   ├── claude_caller.py  # Claude实现(可选)
-│   │   └── strategy/
-│   │       ├── __init__.py
-│   │       ├── cache.py      # 缓存策略
-│   │       ├── retry.py      # 重试策略
-│   │       └── compress.py   # 历史压缩策略
-│   ├── core/                  # 核心组件
+│   ├── utils/                 # 通用工具
 │   │   ├── __init__.py
 │   │   ├── models.py         # 数据模型
-│   │   ├── prompt_builder.py # 提示词构建器
-│   │   ├── history_manager.py# 历史管理器
 │   │   └── exceptions.py     # 异常定义
-│   └── tests/
-│
-├── storage/                   # 💾 Storage模块层
-│   ├── __init__.py
-│   ├── atomic/                # 原子层实现
+│   ├── core/                  # 核心实现（原子层）
 │   │   ├── __init__.py
-│   │   ├── base.py           # 存储抽象基类
-│   │   ├── faiss_store.py    # Faiss向量存储实现
-│   │   ├── falkordb_store.py # FalkorDB图存储实现
-│   │   └── hybrid_retriever.py # 混合检索器
-│   ├── core/
+│   │   ├── base.py           # 抽象基类：LLMCaller
+│   │   ├── openai_caller.py  # OpenAI API调用器
+│   │   └── claude_caller.py  # Claude API调用器(可选)
+│   └── components/            # 组合组件（模块层）
+│       ├── __init__.py
+│       ├── prompt_builder.py # 提示词构建器
+│       └── history_manager.py# 历史管理器
+│
+├── embedding/                 # 🔢 Embedding模块
+│   ├── __init__.py
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── models.py
+│   │   └── exceptions.py
+│   └── core/
+│       ├── __init__.py
+│       ├── base.py           # 抽象基类：Embedding
+│       └── simple_embedding.py # OpenAI Embedding API
+│
+├── vector/                    # 🔢 Vector模块
+│   ├── __init__.py
+│   ├── utils/                 # 通用工具
 │   │   ├── __init__.py
 │   │   ├── models.py         # 数据模型
-│   │   ├── schema.py         # 图谱Schema定义
+│   │   └── exceptions.py     # 异常定义
+│   └── core/                  # 核心实现（原子层）
+│       ├── __init__.py
+│       ├── base.py           # 抽象基类：VectorStore
+│       └── faiss_store.py    # Faiss向量存储
+│
+├── graph/                     # 🕸️ Graph模块
+│   ├── __init__.py
+│   ├── utils/                 # 通用工具
+│   │   ├── __init__.py
+│   │   ├── models.py         # 含GraphSchema定义
 │   │   ├── validators.py     # 数据验证器
 │   │   └── exceptions.py
-│   └── tests/
+│   └── core/                  # 核心实现（原子层）
+│       ├── __init__.py
+│       ├── base.py           # 抽象基类：GraphStore
+│       └── falkordb_store.py # FalkorDB图存储
 │
-├── nlp/                       # 📝 NLP模块层
+├── nlp/                       # 📝 NLP模块
 │   ├── __init__.py
-│   ├── atomic/                # 原子层实现
-│   │   ├── __init__.py
-│   │   ├── emotion_analyzer.py  # 情绪分析(spaCy/HuggingFace)
-│   │   ├── entity_extractor.py  # 实体提取NER(spaCy)
-│   │   ├── intent_classifier.py # 意图识别
-│   │   └── summarizer.py        # 文本摘要
-│   ├── core/
+│   ├── utils/
 │   │   ├── __init__.py
 │   │   ├── models.py
 │   │   └── exceptions.py
-│   └── tests/
+│   └── core/                  # 核心实现（原子层）
+│       ├── __init__.py
+│       ├── base.py           # 抽象基类：EmotionAnalyzer, EntityExtractor等
+│       ├── emotion_analyzer.py  # 情绪分析(spaCy/HuggingFace)
+│       ├── entity_extractor.py  # 实体提取NER(spaCy)
+│       ├── intent_classifier.py # 意图识别
+│       └── summarizer.py        # 文本摘要
 │
-├── file/                      # 📄 File模块层
+├── file/                      # 📄 File模块
 │   ├── __init__.py
-│   ├── atomic/                # 原子层实现
-│   │   ├── __init__.py
-│   │   ├── base.py           # 解析器基类
-│   │   ├── pdf_parser.py     # PDF解析(PyPDF2)
-│   │   ├── docx_parser.py    # Word解析(python-docx)
-│   │   ├── markdown_parser.py# Markdown解析
-│   │   ├── text_parser.py    # 文本解析
-│   │   └── ppt_parser.py     # PPT解析
-│   ├── core/
+│   ├── utils/
 │   │   ├── __init__.py
 │   │   ├── models.py
 │   │   └── exceptions.py
-│   └── tests/
+│   └── core/                  # 核心实现（原子层）
+│       ├── __init__.py
+│       ├── base.py           # 抽象基类：FileParser
+│       ├── pdf_parser.py     # PDF解析(PyPDF2)
+│       ├── docx_parser.py    # Word解析(python-docx)
+│       ├── markdown_parser.py# Markdown解析
+│       ├── text_parser.py    # 文本解析
+│       └── ppt_parser.py     # PPT解析
 │
-└── algorithm/                 # ⚙️ Algorithm模块层
+└── algorithm/                 # ⚙️ Algorithm模块
     ├── __init__.py
-    ├── text_similarity.py    # 文本相似度(NumPy)
-    ├── time_analyzer.py      # 时间解析
-    ├── topological_sorter.py # 拓扑排序(NetworkX)
-    ├── statistics.py         # 统计计算(NumPy)
-    └── tests/
+    ├── utils/
+    │   ├── __init__.py
+    │   └── models.py
+    └── core/                  # 核心实现（原子层）
+        ├── __init__.py
+        ├── base.py           # 抽象基类：SimilarityCalculator等
+        ├── text_similarity.py    # 文本相似度(NumPy)
+        ├── time_analyzer.py      # 时间解析
+        └── todo_sorter.py        # 拓扑排序(NetworkX)
 ```
 
 ### 组合能力层结构
@@ -149,6 +192,10 @@ foundation/                     # 原子能力层
 ```
 capability/                    # 组合能力层
 ├── __init__.py
+├── common/                    # 🔧 通用组合能力
+│   ├── __init__.py
+│   └── hybrid_retriever.py   # 混合检索器(Faiss 0.6 + Falkor 0.4)
+│
 ├── life/                      # 🏡 Life场景能力
 │   ├── __init__.py
 │   ├── intent_recognizer.py  # 意图识别器
@@ -194,13 +241,68 @@ service/                       # 服务层
 
 ---
 
-## 2. 原子能力层代码实现
+## 2. 基础能力层代码实现
 
-> ⭐ **能力基座**: 原子能力层是整个系统的能力基座,提供最小粒度的原子操作
+> 🏛️ **能力基座**: 基础能力层是整个系统的能力基座，提供最小粒度的原子操作
 
-> 🏛️ **两层架构**: 采用**模块层 + 原子层**的两层设计
-> - **模块层**: 定义能力边界和对外接口,屏蔽底层实现细节
-> - **原子层**: 提供具体的技术实现(如OpenAI、Faiss、spaCy等)
+> 🏛️ **两层架构**: 采用**模块抽象层 + 原子能力层**的两层设计
+> - **模块抽象层**: 定义能力边界和对外接口，屏蔽底层实现细节
+> - **原子能力层**: 提供具体的技术实现(如OpenAI、Faiss、spaCy等)
+
+### 2.0 base.py 设计理念
+
+> 🔑 **扩展性保证**: 每个模块的 `core/base.py` 定义抽象基类，确保用户可以自定义扩展
+
+**设计原则**：
+
+1. **开闭原则** (Open-Closed Principle)
+   - 对扩展开放：用户可以继承 `base.py` 中的抽象类实现自己的版本
+   - 对修改关闭：上层代码只依赖抽象接口，不感知底层实现变化
+
+2. **里氏替换原则** (Liskov Substitution Principle)
+   - 所有实现类都可以透明替换
+   - 例：`OpenAICaller`、`ClaudeCaller` 都可以替换 `LLMCaller`
+
+3. **依赖倒置原则** (Dependency Inversion Principle)
+   - 上层模块依赖抽象，而非具体实现
+   - 例：`HybridRetriever` 依赖 `VectorStore` 抽象，而非 `FaissStore`
+
+**扩展示例**：
+
+```
+# 用户可以自定义 LLM 实现
+from ame.foundation.llm.core.base import LLMCaller
+
+class CustomLLMCaller(LLMCaller):
+    """[用户自定义] 本地LLM调用器"""
+    
+    def call(self, prompt: str, model: str, temperature: float, max_tokens: int) -> str:
+        # 调用本地 LLaMA 模型
+        return self.local_llama.generate(prompt)
+    
+    def call_stream(self, prompt: str, model: str):
+        # 流式输出
+        for chunk in self.local_llama.stream(prompt):
+            yield chunk
+
+# 系统自动支持，无需修改上层代码
+caller = CustomLLMCaller()
+response = caller.call("Hello", "llama-7b", 0.7, 100)
+```
+
+**base.py 核心职责**：
+
+| 模块 | base.py 定义的抽象类 | 说明 |
+|------|---------------------|------|
+| **LLM** | `LLMCaller` | 定义 `call()`, `call_stream()`, `batch_call()` 接口 |
+| **Embedding** | `Embedding` | 定义 `embed()`, `embed_batch()` 接口 |
+| **Vector** | `VectorStore` | 定义 `add()`, `search()` 接口 |
+| **Graph** | `GraphStore` | 定义 `add_node()`, `add_edge()`, `query()` 接口 |
+| **NLP** | `EmotionAnalyzer`, `EntityExtractor`, `IntentClassifier`, `Summarizer` | 定义各自NLP能力接口 |
+| **File** | `FileParser` | 定义 `parse()` 统一接口 |
+| **Algorithm** | `SimilarityCalculator`, `TimeAnalyzer`, `Sorter` | 定义算法类接口 |
+
+---
 
 ### 2.1 LLM模块
 
@@ -211,6 +313,25 @@ service/                       # 服务层
 **技术选型**: OpenAI API (GPT-4/GPT-3.5-turbo)
 
 **对外接口**: `call()`, `build_prompt()`, `manage_history()`
+
+**目录结构** (utils + core + components):
+```
+llm/
+├── __init__.py
+├── utils/                 # 通用工具
+│   ├── __init__.py
+│   ├── models.py         # 数据模型
+│   └── exceptions.py     # 异常定义
+├── core/                  # 核心实现（原子层）
+│   ├── __init__.py
+│   ├── base.py           # 抽象基类：LLMCaller(保证扩展性)
+│   ├── openai_caller.py  # OpenAI API调用器
+│   └── claude_caller.py  # Claude API调用器(可选)
+└── components/            # 组合组件（模块层）
+    ├── __init__.py
+    ├── prompt_builder.py # 提示词构建器
+    └── history_manager.py# 历史管理器
+```
 
 #### 模块层接口定义
 
@@ -268,83 +389,161 @@ class HistoryManager:
         pass
 ```
 
-### 2.2 Storage模块
+### 2.2 Vector模块
 
 #### 模块定位
 
-**能力边界**: 向量存储、图存储、混合检索
+**能力边界**: 向量存储与相似度检索
 
-**技术选型**: Faiss(向量) + FalkorDB(图)
+**技术选型**: Faiss
 
-**对外接口**: `vector_search()`, `graph_query()`, `hybrid_retrieve()`
+**对外接口**: `add()`, `search()`
 
 **关键特性**:
-- 图边支持时间属性: `create_time`(生效时间) / `invalid_time`(失效时间)
-- 混合检索融合策略: Faiss 0.6 + Falkor 0.4
-- 向量存储直接使用FaissStore实现,承载向量+文本+元数据
+- 轻量高效的向量检索，适合中小规模场景
+- 支持向量+文本+元数据一起存储
+- 高效的余弦相似度计算
+
+**目录结构** (utils + core):
+```
+vector/
+├── __init__.py
+├── utils/                 # 通用工具
+│   ├── __init__.py
+│   ├── models.py         # 数据模型
+│   └── exceptions.py     # 异常定义
+└── core/                  # 核心实现（原子层）
+    ├── __init__.py
+    ├── base.py           # 抽象基类：VectorStore(保证扩展性)
+    └── faiss_store.py    # Faiss向量存储
+```
 
 #### 模块层接口定义
 
 ```python
+from abc import ABC, abstractmethod
+from typing import List, Dict
+
 class VectorStore(ABC):
     """向量存储抽象接口"""
     
     @abstractmethod
     def add(self, id: str, vector: List[float], metadata: Dict) -> bool:
-        """添加向量"""
+        """
+        添加向量
+        - 输入: ID、向量、元数据
+        - 输出: 添加成功与否
+        - 功能: 支持向量+文本+元数据一起存储
+        """
         pass
     
     @abstractmethod
-    def search(self, query_vector: List[float], top_k: int, filter: Dict) -> List[Dict]:
-        """相似度检索"""
+    def search(self, query_vector: List[float], top_k: int, filter: Dict = None) -> List[Dict]:
+        """
+        相似度检索
+        - 输入: 查询向量、返回数量、过滤条件
+        - 输出: 相似结果列表
+        - 功能: 基于余弦相似度检索
+        """
         pass
+    
+    @abstractmethod
+    def delete(self, id: str) -> bool:
+        """删除向量"""
+        pass
+    
+    @abstractmethod
+    def update(self, id: str, vector: List[float], metadata: Dict) -> bool:
+        """更新向量"""
+        pass
+
+---
+
+### 2.3 Graph模块
+
+#### 模块定位
+
+**能力边界**: 图谱存储、图查询、关系演化分析
+
+**技术选型**: FalkorDB
+
+**对外接口**: `add_node()`, `add_edge()`, `query()`
+
+**关键特性**:
+- 图边支持时间属性: `create_time`(生效时间) / `invalid_time`(失效时间)
+- 支持关系演化分析，跟踪关系变化
+- 与Redis生态集成，高性能图计算
+
+**目录结构** (utils + core):
+```
+graph/
+├── __init__.py
+├── utils/                 # 通用工具
+│   ├── __init__.py
+│   ├── models.py         # 含GraphSchema定义
+│   ├── validators.py     # 数据验证器
+│   └── exceptions.py
+└── core/                  # 核心实现（原子层）
+    ├── __init__.py
+    ├── base.py           # 抽象基类：GraphStore(保证扩展性)
+    └── falkordb_store.py # FalkorDB图存储
+```
+
+#### 模块层接口定义
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict
 
 class GraphStore(ABC):
     """图存储抽象接口"""
     
     @abstractmethod
     def add_node(self, node_type: str, properties: Dict) -> str:
-        """添加节点"""
+        """
+        添加节点
+        - 输入: 节点类型、属性字典
+        - 输出: 节点ID
+        """
         pass
     
     @abstractmethod
     def add_edge(self, from_id: str, to_id: str, edge_type: str, properties: Dict) -> str:
         """
         添加边(支持时间属性)
-        properties应包含: create_time, invalid_time
+        - 输入: 起点ID、终点ID、边类型、属性字典
+        - 输出: 边ID
+        - properties应包含: create_time, invalid_time
         """
         pass
     
     @abstractmethod
-    def query(self, cypher: str, params: Dict) -> List[Dict]:
-        """Cypher查询"""
+    def query(self, cypher: str, params: Dict = None) -> List[Dict]:
+        """
+        Cypher查询
+        - 输入: Cypher查询语句、参数
+        - 输出: 查询结果列表
+        """
         pass
     
     @abstractmethod
     def update_edge(self, edge_id: str, properties: Dict) -> bool:
-        """更新边(用于设置invalid_time)"""
+        """
+        更新边(用于设置invalid_time)
+        - 输入: 边ID、更新属性
+        - 输出: 更新成功与否
+        """
         pass
-
-class HybridRetriever:
-    """混合检索器 - Faiss 0.6 + Falkor 0.4"""
     
-    def __init__(self, vector_store, graph_store, vector_weight=0.6, graph_weight=0.4):
-        self.vector_store = vector_store
-        self.graph_store = graph_store
-        self.vector_weight = vector_weight
-        self.graph_weight = graph_weight
+    @abstractmethod
+    def delete_node(self, node_id: str) -> bool:
+        """删除节点"""
+        pass
     
-    def retrieve(self, query: str, query_vector: List[float], top_k: int):
-        """混合检索"""
-        # 1. 并行调用向量检索和图谱检索
-        vector_results = self.vector_store.search(query_vector, top_k*2)
-        graph_results = self._graph_search(query, top_k*2)
-        
-        # 2. 加权融合
-        fused = self.fuse_scores(vector_results, graph_results)
-        
-        # 3. 排序返回
-        return sorted(fused, key=lambda x: x['score'], reverse=True)[:top_k]
+    @abstractmethod
+    def delete_edge(self, edge_id: str) -> bool:
+        """删除边"""
+        pass
 ```
 
 #### GraphSchema定义
@@ -384,6 +583,119 @@ class GraphSchema:
 > 🔧 **能力组合**: 组合能力层将多个原子能力组合起来,完成抽象的业务步骤
 
 > 🎯 **编排理念**: 服务层通过编排这些组合能力实现完整的业务流程
+
+### 3.0 通用组合能力
+
+#### HybridRetriever - 混合检索器
+
+**设计理念**: 将 Vector 模块的向量检索与 Graph 模块的图查询融合，提供更全面的检索能力
+
+**核心功能**:
+- 并行调用向量检索（Faiss）和图谱检索（FalkorDB）
+- 加权融合策略: Faiss 0.6 + Falkor 0.4
+- 支持语义相似度 + 关系推理
+
+```python
+from typing import List, Dict
+from ame.foundation.vector.core.base import VectorStore
+from ame.foundation.graph.core.base import GraphStore
+
+class HybridRetriever:
+    """混合检索器 - Faiss 0.6 + Falkor 0.4"""
+    
+    def __init__(self, 
+                 vector_store: VectorStore, 
+                 graph_store: GraphStore, 
+                 vector_weight: float = 0.6, 
+                 graph_weight: float = 0.4):
+        """
+        初始化混合检索器
+        
+        Args:
+            vector_store: 向量存储实例
+            graph_store: 图存储实例
+            vector_weight: 向量检索权重（默认0.6）
+            graph_weight: 图查询权重（默认0.4）
+        """
+        self.vector_store = vector_store
+        self.graph_store = graph_store
+        self.vector_weight = vector_weight
+        self.graph_weight = graph_weight
+    
+    def retrieve(self, query: str, query_vector: List[float], top_k: int = 5) -> List[Dict]:
+        """
+        混合检索
+        
+        流程:
+        1. 并行调用向量检索和图谱检索
+        2. 加权融合分数
+        3. 排序返回top_k结果
+        
+        Args:
+            query: 查询文本
+            query_vector: 查询向量
+            top_k: 返回结果数量
+        
+        Returns:
+            融合后的检索结果列表
+        """
+        # 1. 并行调用向量检索和图谱检索
+        vector_results = self.vector_store.search(query_vector, top_k * 2)
+        graph_results = self._graph_search(query, top_k * 2)
+        
+        # 2. 加权融合
+        fused = self._fuse_scores(vector_results, graph_results)
+        
+        # 3. 排序返回
+        return sorted(fused, key=lambda x: x['score'], reverse=True)[:top_k]
+    
+    def _graph_search(self, query: str, top_k: int) -> List[Dict]:
+        """图谱检索"""
+        # 根据查询构建Cypher语句
+        cypher = """
+        MATCH (m:Memory)-[:MENTIONS]->(e:Entity)
+        WHERE e.name CONTAINS $query
+        RETURN m, e, score
+        ORDER BY score DESC
+        LIMIT $top_k
+        """
+        return self.graph_store.query(cypher, {'query': query, 'top_k': top_k})
+    
+    def _fuse_scores(self, vector_results: List[Dict], graph_results: List[Dict]) -> List[Dict]:
+        """加权融合分数"""
+        # 合并结果，按ID去重
+        merged = {}
+        
+        # 处理向量结果
+        for item in vector_results:
+            item_id = item['id']
+            merged[item_id] = {
+                'id': item_id,
+                'content': item['content'],
+                'score': item['score'] * self.vector_weight,
+                'source': 'vector'
+            }
+        
+        # 处理图结果
+        for item in graph_results:
+            item_id = item['id']
+            if item_id in merged:
+                # 已存在，融合分数
+                merged[item_id]['score'] += item['score'] * self.graph_weight
+                merged[item_id]['source'] = 'hybrid'
+            else:
+                # 新增
+                merged[item_id] = {
+                    'id': item_id,
+                    'content': item['content'],
+                    'score': item['score'] * self.graph_weight,
+                    'source': 'graph'
+                }
+        
+        return list(merged.values())
+```
+
+---
 
 ### 3.1 Life场景能力
 
@@ -732,7 +1044,7 @@ graph_store.update_edge(edge_id, {'invalid_time': '2024-12-31'})
 
 #### Cypher查询示例
 
-```cypher
+``cypher
 # 查询当前仍有效的喜好
 MATCH (u:User)-[r:LIKES]->(e:Entity)
 WHERE r.invalid_time IS NULL
@@ -749,15 +1061,23 @@ RETURN e, r
 
 ### 6.2 混合检索使用示例
 
-**设计理念**: 并行调用Faiss(语义)和Falkor(关系),加权融合(0.6+0.4)
+**设计理念**: 并行调用Vector模块(语义)和Graph模块(关系),加权融合(0.6+0.4)
 
 ```python
 # 使用混合检索
-context_retriever = CapabilityFactory.get_context_retriever()
-results = context_retriever.retrieve(
+from ame.capability.common import HybridRetriever
+from ame.foundation.vector.core import FaissStore
+from ame.foundation.graph.core import FalkorDBStore
+
+# 初始化
+v ector_store = FaissStore()
+graph_store = FalkorDBStore()
+hybrid_retriever = HybridRetriever(vector_store, graph_store)
+
+# 检索
+results = hybrid_retriever.retrieve(
     query="我上次和张三讨论的项目是什么?",
     query_vector=embedding,  # 由Embedding模块生成
-    session_id="session_123",
     top_k=5
 )
 
@@ -765,7 +1085,7 @@ results = context_retriever.retrieve(
 for result in results:
     print(f"内容: {result['content']}")
     print(f"分数: {result['score']}")
-    print(f"来源: {result['source']}")  # 'vector' or 'graph'
+    print(f"来源: {result['source']}")  # 'vector', 'graph', or 'hybrid'
 ```
 
 ### 6.3 服务层调用示例
@@ -892,7 +1212,9 @@ graph_store.delete_edge(edge_id)  # 错误!
 
 **✅ 正确做法**:
 ```python
-# 使用默认权重(Faiss 0.6 + Falkor 0.4)
+# 使用默认权重(Vector 0.6 + Graph 0.4)
+from ame.capability.common import HybridRetriever
+
 retriever = HybridRetriever(vector_store, graph_store)
 
 # 或根据场景调整权重
@@ -906,8 +1228,9 @@ retriever = HybridRetriever(
 #### 5. 错误处理
 
 ```python
-from foundation.llm.core.exceptions import LLMError
-from foundation.storage.core.exceptions import StorageError
+from foundation.llm.utils.exceptions import LLMError
+from foundation.vector.utils.exceptions import VectorStoreError  
+from foundation.graph.utils.exceptions import GraphStoreError
 
 try:
     response = chat_service.chat(message, session_id)
@@ -915,7 +1238,7 @@ except LLMError as e:
     # 处理LLM调用错误
     logger.error(f"LLM错误: {e}")
     response = "抱歉,我现在无法回复"
-except StorageError as e:
+except (VectorStoreError, GraphStoreError) as e:
     # 处理存储错误
     logger.error(f"存储错误: {e}")
     response = "抱歉,数据检索失败"
@@ -931,5 +1254,3 @@ except StorageError as e:
 
 ---
 
-**文档版本**: v2.1  
-**最后更新**: 2025-01

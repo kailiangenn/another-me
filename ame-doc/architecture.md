@@ -39,11 +39,12 @@
 
 ### 系统定位
 
-Another-Me是一个**基于个人数据的AI数字分身引擎**，采用**三层能力提供架构**：
+Another-Me是一个**基于个人数据的AI数字分身引擎**，采用**四层能力提供架构**：
 
-- 🏗️ **原子能力层 (Foundation)**: 提供最小粒度的基础能力
-- 🔧 **组合能力层 (Capability)**: 基于原子能力的组合
-- 🚀 **服务层 (Service)**: 业务流程编排,对外提供完整服务
+- 🔬 **原子能力层 (Atomic Layer)**: 提供具体的技术实现（OpenAI、Faiss等）
+- ⭐ **模块抽象层 (Module Layer)**: 屏蔽底层差异，提供统一接口（LLM、Storage等）
+- 🔧 **组合能力层 (Capability Layer)**: 组合模块能力，完成抽象步骤
+- 🚀 **服务层 (Service Layer)**: 业务流程编排，对外提供完整服务
 
 ### 架构分层
 
@@ -106,8 +107,11 @@ graph BT
             Local["本地模型"]
         end
         
-        subgraph Storage_Atomic["💾 Storage原子"]
+        subgraph Vector_Atomic["🔢 Vector原子"]
             Faiss["Faiss<br/>向量存储"]
+        end
+        
+        subgraph Graph_Atomic["🕸️ Graph原子"]
             Falkor["FalkorDB<br/>图数据库"]
         end
         
@@ -131,7 +135,8 @@ graph BT
     
     subgraph Module["⭐ 模块抽象层 Module Layer"]
         LLM["🧠 LLM模块<br/>Caller + PromptBuilder + HistoryManager"]
-        Storage["💾 Storage模块<br/>VectorStore + GraphStore + HybridRetriever"]
+        Vector["🔢 Vector模块<br/>VectorStore + VectorRetriever"]
+        Graph["🕸️ Graph模块<br/>GraphStore + GraphQuery"]
         NLP["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
         File["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
         Algorithm["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
@@ -163,8 +168,8 @@ graph BT
     Claude -.-> LLM
     Local -.-> LLM
     
-    Faiss -.-> Storage
-    Falkor -.-> Storage
+    Faiss -.-> Vector
+    Falkor -.-> Graph
     
     spaCy -.-> NLP
     HF -.-> NLP
@@ -185,9 +190,10 @@ graph BT
     LLM -.->|提供LLM调用| TP
     LLM -.->|提供LLM调用| AG
     
-    Storage -.->|提供混合检索| CR
-    Storage -.->|提供图存储| TM
-    Storage -.->|提供图查询| PtA
+    Vector -.->|提供向量检索| CR
+    Graph -.->|提供图检索| CR
+    Graph -.->|提供图存储| TM
+    Graph -.->|提供图查询| PtA
     
     NLP -.->|提供NLP分析| ME
     NLP -.->|提供NER提取| PA
@@ -238,10 +244,11 @@ graph TB
     subgraph Foundation["🏛️ 基础能力层 Foundation Layer"]
         subgraph ModuleLayer["⭐ 模块抽象层 Module Layer"]
             M1["🧠 LLM模块<br/>Caller + PromptBuilder + HistoryManager"]
-            M2["💾 Storage模块<br/>VectorStore + GraphStore + HybridRetriever"]
-            M3["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
-            M4["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
-            M5["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
+            M2["🔢 Vector模块<br/>VectorStore + VectorRetriever"]
+            M3["🕸️ Graph模块<br/>GraphStore + GraphQuery"]
+            M4["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
+            M5["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
+            M6["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
         end
         
         subgraph AtomicLayer["🔬 原子能力层 Atomic Layer"]
@@ -253,9 +260,12 @@ graph TB
                 L3["本地模型"]
             end
             
-            subgraph Storage_Atomic["💾 Storage原子"]
-                S1["Faiss<br/>向量存储"]
-                S2["FalkorDB<br/>图数据库"]
+            subgraph Vector_Atomic["🔢 Vector原子"]
+                V1["Faiss<br/>向量存储"]
+            end
+            
+            subgraph Graph_Atomic["🕸️ Graph原子"]
+                G1["FalkorDB<br/>图数据库"]
             end
             
             subgraph NLP_Atomic["📝 NLP原子"]
@@ -277,10 +287,11 @@ graph TB
         end
         
         M1 -.-> LLM_Atomic
-        M2 -.-> Storage_Atomic
-        M3 -.-> NLP_Atomic
-        M4 -.-> File_Atomic
-        M5 -.-> Algorithm_Atomic
+        M2 -.-> Vector_Atomic
+        M3 -.-> Graph_Atomic
+        M4 -.-> NLP_Atomic
+        M5 -.-> File_Atomic
+        M6 -.-> Algorithm_Atomic
     end
     
     style ModuleLayer fill:#fff4e1
@@ -337,21 +348,23 @@ Storage模块(抽象层)
 | 模块 | 开源技术方案 | 说明 | 替代方案 |
 |------|------------|------|--------|
 | **🧠 LLM模块** | OpenAI API | GPT-4/GPT-3.5-turbo | Anthropic Claude, Google Gemini, 本地LLaMA/ChatGLM |
-| **💾 Storage模块** | Faiss + FalkorDB | 向量存储 + 图数据库 | Milvus + Neo4j, Qdrant + ArangoDB |
+| **🔢 Vector模块** | Faiss | 轻量高效的向量存储 | Milvus, Qdrant, Weaviate |
+| **🕸️ Graph模块** | FalkorDB | Redis生态集成的图数据库 | Neo4j, ArangoDB, Nebula Graph |
 | **📝 NLP模块** | spaCy + HuggingFace | NER + 情感分析 | NLTK, Stanford CoreNLP, AllenNLP |
 | **📄 File模块** | PyPDF2 + python-docx | 多格式文档解析 | pdfplumber, PyMuPDF, mammoth |
 | **⚙️ Algorithm模块** | NetworkX + NumPy | 图算法 + 数值计算 | SciPy, pandas, scikit-learn |
 
 **技术选型原则**:
 1. **LLM**: 优先OpenAI API,支持本地模型替换
-2. **Storage**: Faiss轻量高效 + FalkorDB与Redis生态集成
-3. **NLP**: spaCy工业级 + HuggingFace生态丰富
-4. **File**: Python生态成熟的库,稳定可靠
-5. **Algorithm**: NetworkX专业图算法 + NumPy高性能计算
+2. **Vector**: Faiss轻量高效,适合中小规模向量检索
+3. **Graph**: FalkorDB与Redis生态集成,支持时间属性的边
+4. **NLP**: spaCy工业级 + HuggingFace生态丰富
+5. **File**: Python生态成熟的库,稳定可靠
+6. **Algorithm**: NetworkX专业图算法 + NumPy高性能计算
 
 ### 2.2 模块抽象层架构详解
 
-模块抽象层包含5个核心模块，每个模块内部包含多个能力组件：
+模块抽象层包含6个核心模块，每个模块内部包含多个能力组件：
 
 ```mermaid
 graph TB
@@ -365,11 +378,15 @@ graph TB
             L4["Strategy<br/>策略组件"]
         end
         
-        subgraph Storage["💾 Storage模块"]
-            S1["VectorStore<br/>向量存储"]
-            S2["GraphStore<br/>图存储"]
-            S3["HybridRetriever<br/>混合检索"]
-            S4["SchemaManager<br/>Schema管理"]
+        subgraph Vector["🔢 Vector模块"]
+            V1["VectorStore<br/>向量存储"]
+            V2["VectorRetriever<br/>向量检索"]
+        end
+        
+        subgraph Graph["🕸️ Graph模块"]
+            G1["GraphStore<br/>图存储"]
+            G2["GraphQuery<br/>图查询"]
+            G3["SchemaManager<br/>Schema管理"]
         end
         
         subgraph NLP["📝 NLP模块"]
@@ -403,7 +420,8 @@ graph TB
 | 模块抽象层 | 能力组件 | 原子能力层实现 | 说明 |
 |------------|----------|-------------------|------|
 | **🧠 LLM模块** | Caller<br/>PromptBuilder<br/>HistoryManager<br/>Strategy | **OpenAI API**<br/>Claude API<br/>本地模型 | 大模型调用、Prompt管理、历史管理、策略组件 |
-| **💾 Storage模块** | VectorStore<br/>GraphStore<br/>HybridRetriever<br/>SchemaManager | **Faiss** (向量存储)<br/>**FalkorDB** (图数据库) | 向量存储、图谱存储、混合检索(0.6+0.4) |
+| **🔢 Vector模块** | VectorStore<br/>VectorRetriever | **Faiss** (向量存储) | 向量存储、相似度检索 |
+| **🕸️ Graph模块** | GraphStore<br/>GraphQuery<br/>SchemaManager | **FalkorDB** (图数据库) | 图谱存储、图查询、Schema管理（支持时间属性边） |
 | **📝 NLP模块** | EmotionAnalyzer<br/>EntityExtractor<br/>IntentClassifier<br/>Summarizer | **spaCy** (NER)<br/>**HuggingFace** (情感分析) | 情绪分析、实体提取、意图识别、文本摘要 |
 | **📄 File模块** | PDFParser<br/>DocxParser<br/>MarkdownParser<br/>TextParser<br/>PPTParser | **PyPDF2**<br/>**python-docx**<br/>**markdown**<br/>**python-pptx** | 多格式文档解析（PDF/Word/MD/PPT/TXT） |
 | **⚙️ Algorithm模块** | SimilarityCalculator<br/>TimeAnalyzer<br/>TopologicalSorter<br/>StatisticsCalculator | **NetworkX** (图算法)<br/>**NumPy** (数值计算) | 文本相似度、时间解析、拓扑排序、统计计算 |
@@ -437,6 +455,31 @@ graph TB
 - 图边支持时间属性: `create_time`(生效时间) / `invalid_time`(失效时间)
 - 混合检索融合策略: 并行调用Faiss(语义)和Falkor(关系), 加权融合0.6+0.4
 - 向量存储直接使用FaissStore实现,承载向量+文本+元数据
+
+#### 🔢 Vector模块
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|----------|
+| **VectorStore** | 向量存储 | vector + metadata | 存储结果 | 向量数据持久化 |
+| **VectorRetriever** | 相似度检索 | query_vector + top_k | 相似结果 | 语义检索、内容推荐 |
+
+**关键特性**:
+- 轻量高效的向量检索，适合中小规模场景
+- 支持向量+文本+元数据一起存储
+- 高效的余弦相似度计算
+
+#### 🕸️ Graph模块
+
+| 能力组件 | 核心功能 | 输入 | 输出 | 应用场景 |
+|---------|---------| ------|------|----------|
+| **GraphStore** | 图谱存储（支持时间边） | node/edge + properties | 存储结果 | 关系存储、知识图谱 |
+| **GraphQuery** | Cypher查询 | cypher + params | 查询结果 | 关系分析、知识推理 |
+| **SchemaManager** | Schema管理 | node_type + edge_type | schema定义 | 图谱规范、数据验证 |
+
+**关键特性**:
+- 图边支持时间属性: `create_time`(生效时间) / `invalid_time`(失效时间)
+- 支持关系演化分析，跟踪关系变化
+- 与Redis生态集成，高性能图计算
 
 #### 📝 NLP模块
 
@@ -480,30 +523,32 @@ graph LR
         direction TB
         
         LLM["🧠 LLM模块"]
-        Storage["💾 Storage模块"]
+        Vector["🔢 Vector模块"]
+        Graph["🕸️ Graph模块"]
         NLP["📝 NLP模块"]
         File["📄 File模块"]
         Algorithm["⚙️ Algorithm模块"]
         
         %% 协作关系
-        Storage -->|向量化依赖LLM Embedding| LLM
+        Vector -->|向量化依赖LLM Embedding| LLM
         NLP -->|高级分析使用LLM| LLM
-        Storage <-->|实体与NER互通| NLP
+        Graph <-->|实体与NER互通| NLP
         File -->|文本清洗| Algorithm
         File -->|实体提取| NLP
-        Algorithm -->|图算法| Storage
+        Algorithm -->|图算法| Graph
     end
 
     style LLM fill:#ffe1e1
-    style Storage fill:#e1f5ff
+    style Vector fill:#e1f5ff
+    style Graph fill:#f3e5f5
     style NLP fill:#fff4e1
-    style File fill:#f3e5f5
-    style Algorithm fill:#e0f2f1
+    style File fill:#e0f2f1
+    style Algorithm fill:#fce4ec
 ```
 
 **协作关系说明**：
 
-1. **Storage → LLM (Embedding API)**
+1. **Vector → LLM (Embedding API)**
    - VectorStore的向量化需要调用LLM的Embedding API
    - 如OpenAI的text-embedding-ada-002
 
@@ -511,7 +556,7 @@ graph LR
    - EmotionAnalyzer、Summarizer等高级NLP任务可调用LLM
    - 基础NER使用spaCy本地模型
 
-3. **Storage ↔ NLP (实体关联)**
+3. **Graph ↔ NLP (实体关联)**
    - EntityExtractor提取的实体存储到GraphStore
    - 构建(Document)-[:MENTIONS]->(Entity)关系
 
@@ -523,7 +568,7 @@ graph LR
    - 解析后的文档进行NER提取
    - 支持文档级别的语义分析
 
-6. **Algorithm → Storage (图算法)**
+6. **Algorithm → Graph (图算法)**
    - TopologicalSorter对GraphStore中的依赖关系排序
    - 图遍历、路径查找等
 
@@ -542,7 +587,7 @@ graph LR
 | 组合能力 | 组合的原子能力 | 核心功能 | 数据输入 | 数据输出 |
 |----------|-----------------|----------|----------|----------|
 | **IntentRecognizer** | LLMCaller + IntentClassifier | 识别用户意图 | 消息+上下文 | 意图类型+置信度 |
-| **ContextRetriever** | VectorStore + GraphStore + HybridRetriever | 混合检索上下文 | 查询+会话ID | 上下文列表 |
+| **ContextRetriever** | VectorRetriever + GraphQuery + HybridRetriever | 混合检索上下文 | 查询+会话ID | 上下文列表 |
 | **DialogueGenerator** | LLMCaller + PromptBuilder + HistoryManager | 生成个性化回复 | 上下文+消息 | 生成回复 |
 | **MemoryExtractor** | LLMCaller + EmotionAnalyzer + EntityExtractor + TimeAnalyzer | 提取记忆点 | 对话历史 | 记忆对象列表 |
 
@@ -554,7 +599,7 @@ graph LR
 | **ProjectAnalyzer** | EntityExtractor + LLMCaller | 项目分析报告 | 文档列表 | 分析报告 |
 | **TodoParser** | LLMCaller + TimeAnalyzer | 任务解析 | 任务描述 | 待办列表 |
 | **TodoManager** | GraphStore + SimilarityCalculator + TopologicalSorter | 待办管理 | 待办列表 | 排序后的待办 |
-| **PatternAnalyzer** | GraphStore + StatisticsCalculator | 工作模式分析 | 用户ID | 工作模式对象 |
+| **PatternAnalyzer** | GraphQuery + StatisticsCalculator | 工作模式分析 | 用户ID | 工作模式对象 |
 | **AdviceGenerator** | LLMCaller + PromptBuilder | 建议生成 | 工作模式 | Markdown建议 |
 
 ### 3.3 能力工厂模式
