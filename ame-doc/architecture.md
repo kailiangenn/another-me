@@ -10,11 +10,13 @@
    - [1.2 架构分层](#架构分层)
    - [1.3 能力提供方向](#能力提供方向)
    - [1.4 完整架构视图](#完整架构视图)
-2. [原子能力层 Foundation Layer](#原子能力层-foundation-layer)
-   - [2.1 技术选型](#技术选型)
-   - [2.2 核心模块架构](#核心模块架构)
-   - [2.3 模块能力矩阵](#模块能力矩阵)
-   - [2.4 模块间协作关系](#模块间协作关系)
+2. [基础能力层 Foundation Layer](#基础能力层-foundation-layer)
+   - [2.0 两层架构设计](#20-两层架构设计)
+   - [2.1 原子层技术选型](#21-原子层技术选型)
+   - [2.2 模块抽象层架构详解](#22-模块抽象层架构详解)
+   - [2.3 模块与原子能力映射](#23-模块与原子能力映射)
+   - [2.4 模块能力矩阵](#24-模块能力矩阵)
+   - [2.5 模块间协作关系](#25-模块间协作关系)
 3. [组合能力层 Capability Layer](#组合能力层-capability-layer)
    - [3.1 Life场景能力编排](#life场景能力编排)
    - [3.2 Work场景能力编排](#work场景能力编排)
@@ -61,33 +63,78 @@ Another-Me是一个**基于个人数据的AI数字分身引擎**，采用**三�
 ┌─────────────────────────────────┐
 │   🚀 服务层 Service Layer       │  ← 用户交互层
 │   基于组合能力编排业务流程      │
+│   （ChatService、WorkService）  │
 └──────────────┬──────────────────┘
                ↑ 组装能力
 ┌──────────────┴──────────────────┐
 │   🔧 组合能力层 Capability       │  ← 抽象能力层
 │   组合多个原子能力完成抽象步骤   │
+│   （Retriever、Generator、Parser）│
 └──────────────┬──────────────────┘
-               ↑ 提供原子能力
+               ↑ 提供模块能力
 ┌──────────────┴──────────────────┐
-│   ⭐ 原子能力层 Foundation       │  ← 能力基座
+│   ⭐ 模块抽象层 Module Layer     │  ← 能力抽象层
+│   屏蔽底层实现，定义能力边界     │
+│   （LLM、Storage、NLP、File）    │
+└──────────────┬──────────────────┘
+               ↑ 提供原子实现
+┌──────────────┴──────────────────┐
+│   🔬 原子能力层 Atomic Layer     │  ← 能力实现层
 │   提供最小粒度的原子操作         │
+│   （OpenAI、Faiss、spaCy、PyPDF2） │
 └─────────────────────────────────┘
 ```
 
-**核心理念**: 能力从下往上提供,用户从上往下使用
+**核心理念**: 能力从下往上提供，用户从上往下使用
+
+**分层职责**：
+- 🔬 **原子能力层**: 具体技术实现（OpenAI、Faiss、FalkorDB、spaCy等）
+- ⭐ **模块抽象层**: 屏蔽底层差异，提供统一接口（LLM、Storage、NLP、File、Algorithm）
+- 🔧 **组合能力层**: 组合多个模块能力，完成抽象步骤（Retriever、Generator、Parser）
+- 🚀 **服务层**: 编排组合能力，实现完整业务流程（ChatService、WorkService）
 
 ### 完整架构视图
 
 ```mermaid
 graph BT
-    subgraph Foundation["⭐ 原子能力层 Foundation Layer"]
-        LLM["🧠 LLM模块"]
-        EMB["🔢 向量化模块"]
-        VS["💾 向量存储"]
-        GS["🕸️ 图存储"]
-        NLP["📝 NLP工具集"]
-        FP["📄 文件解析"]
-        ALG["⚙️ 算法库"]
+    subgraph Atomic["🔬 原子能力层 Atomic Layer"]
+        direction LR
+        
+        subgraph LLM_Atomic["🧠 LLM原子"]
+            OAI["OpenAI API"]
+            Claude["Claude API"]
+            Local["本地模型"]
+        end
+        
+        subgraph Storage_Atomic["💾 Storage原子"]
+            Faiss["Faiss<br/>向量存储"]
+            Falkor["FalkorDB<br/>图数据库"]
+        end
+        
+        subgraph NLP_Atomic["📝 NLP原子"]
+            spaCy["spaCy<br/>NER"]
+            HF["HuggingFace<br/>情感分析"]
+        end
+        
+        subgraph File_Atomic["📄 File原子"]
+            PyPDF["PyPDF2"]
+            Docx["python-docx"]
+            MD["markdown"]
+            PPT["python-pptx"]
+        end
+        
+        subgraph Algo_Atomic["⚙️ Algorithm原子"]
+            NX["NetworkX<br/>图算法"]
+            NP["NumPy<br/>数值计算"]
+        end
+    end
+    
+    subgraph Module["⭐ 模块抽象层 Module Layer"]
+        LLM["🧠 LLM模块<br/>Caller + PromptBuilder + HistoryManager"]
+        Storage["💾 Storage模块<br/>VectorStore + GraphStore + HybridRetriever"]
+        NLP["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
+        File["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
+        Algorithm["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
     end
     
     subgraph Capability["🔧 组合能力层 Capability Layer"]
@@ -111,7 +158,26 @@ graph BT
         WAS["💡 WorkAdviceService<br/>工作建议"]
     end
     
-    %% 基础层向组合层提供能力
+    %% 原子层向模块层提供实现
+    OAI -.-> LLM
+    Claude -.-> LLM
+    Local -.-> LLM
+    
+    Faiss -.-> Storage
+    Falkor -.-> Storage
+    
+    spaCy -.-> NLP
+    HF -.-> NLP
+    
+    PyPDF -.-> File
+    Docx -.-> File
+    MD -.-> File
+    PPT -.-> File
+    
+    NX -.-> Algorithm
+    NP -.-> Algorithm
+    
+    %% 模块层向组合层提供能力
     LLM -.->|提供LLM调用| IR
     LLM -.->|提供LLM调用| DG
     LLM -.->|提供LLM调用| ME
@@ -119,19 +185,18 @@ graph BT
     LLM -.->|提供LLM调用| TP
     LLM -.->|提供LLM调用| AG
     
-    VS -.->|提供向量检索| CR
-    GS -.->|提供图查询| CR
-    GS -.->|提供图存储| TM
-    GS -.->|提供图查询| PtA
+    Storage -.->|提供混合检索| CR
+    Storage -.->|提供图存储| TM
+    Storage -.->|提供图查询| PtA
     
     NLP -.->|提供NLP分析| ME
     NLP -.->|提供NER提取| PA
     
-    FP -.->|提供文件解析| DP
+    File -.->|提供文件解析| DP
     
-    ALG -.->|提供时间解析| TP
-    ALG -.->|提供排序算法| TM
-    ALG -.->|提供统计计算| PtA
+    Algorithm -.->|提供时间解析| TP
+    Algorithm -.->|提供排序算法| TM
+    Algorithm -.->|提供统计计算| PtA
     
     %% 组合层向服务层提供能力
     IR ==>|组装到| CS
@@ -148,62 +213,66 @@ graph BT
     PtA ==>|组装到| WAS
     AG ==>|组装到| WAS
     
-    style Foundation fill:#e8f5e9
+    style Atomic fill:#e8f5e9
+    style Module fill:#fff4e1
     style Capability fill:#fff9c4
     style Service fill:#e1f5fe
 ```
 
 ---
 
-## 原子能力层 Foundation Layer
+## 基础能力层 Foundation Layer
 
-> 💡 **设计理念**: 原子能力层是整个系统的**能力基座**，提供最小粒度的原子操作，所有上层功能都基于这些原子能力组合而成。
+> 💡 **设计理念**: 基础能力层是整个系统的**能力基座**，采用**模块抽象层 + 原子能力层**的两层设计。
 
-> 🏛️ **两层架构**: 原子能力层采用**模块层 + 原子层**的两层设计，模块层定义能力边界，原子层提供具体实现。
+> 🏛️ **两层架构**: 
+> - **模块抽象层 (Module Layer)**: 定义能力边界，屏蔽底层实现差异
+> - **原子能力层 (Atomic Layer)**: 提供具体的技术实现方案
 
 ### 2.0 两层架构设计
 
-基础能力层采用**模块层(Module Layer) + 原子层(Atomic Layer)**的两层设计：
+基础能力层采用**模块抽象层(Module Layer) + 原子能力层(Atomic Layer)**的两层设计：
 
 ```mermaid
 graph TB
-    subgraph Foundation["基础能力层 Foundation Layer"]
-        subgraph ModuleLayer["第一层：模块层 Module Layer"]
-            M1["🧠 LLM模块<br/>大模型能力"]
-            M2["💾 Storage模块<br/>存储能力"]
-            M3["📝 NLP模块<br/>自然语言处理"]
-            M4["📄 File模块<br/>文档解析"]
-            M5["⚙️ Algorithm模块<br/>算法工具"]
+    subgraph Foundation["🏛️ 基础能力层 Foundation Layer"]
+        subgraph ModuleLayer["⭐ 模块抽象层 Module Layer"]
+            M1["🧠 LLM模块<br/>Caller + PromptBuilder + HistoryManager"]
+            M2["💾 Storage模块<br/>VectorStore + GraphStore + HybridRetriever"]
+            M3["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
+            M4["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
+            M5["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
         end
         
-        subgraph AtomicLayer["第二层：原子层 Atomic Layer"]
+        subgraph AtomicLayer["🔬 原子能力层 Atomic Layer"]
             direction LR
             
-            subgraph LLM_Atomic["🧠 LLM原子层"]
+            subgraph LLM_Atomic["🧠 LLM原子"]
                 L1["OpenAI API"]
                 L2["Claude API"]
                 L3["本地模型"]
             end
             
-            subgraph Storage_Atomic["💾 Storage原子层"]
+            subgraph Storage_Atomic["💾 Storage原子"]
                 S1["Faiss<br/>向量存储"]
                 S2["FalkorDB<br/>图数据库"]
             end
             
-            subgraph NLP_Atomic["📝 NLP原子层"]
-                N1["spaCy"]
-                N2["HuggingFace"]
+            subgraph NLP_Atomic["📝 NLP原子"]
+                N1["spaCy<br/>NER"]
+                N2["HuggingFace<br/>情感分析"]
             end
             
-            subgraph File_Atomic["📄 File原子层"]
+            subgraph File_Atomic["📄 File原子"]
                 F1["PyPDF2"]
                 F2["python-docx"]
                 F3["markdown"]
+                F4["python-pptx"]
             end
             
-            subgraph Algorithm_Atomic["⚙️ Algorithm原子层"]
-                A1["NetworkX"]
-                A2["NumPy"]
+            subgraph Algorithm_Atomic["⚙️ Algorithm原子"]
+                A1["NetworkX<br/>图算法"]
+                A2["NumPy<br/>数值计算"]
             end
         end
         
@@ -214,13 +283,13 @@ graph TB
         M5 -.-> Algorithm_Atomic
     end
     
-    style ModuleLayer fill:#fff9c4
+    style ModuleLayer fill:#fff4e1
     style AtomicLayer fill:#e8f5e9
 ```
 
 **两层架构说明**：
 
-#### 🔹 第一层：模块层 (Module Layer)
+#### ⭐ 模块抽象层 (Module Layer)
 
 模块层定义了5个核心能力模块，每个模块提供一类能力的抽象接口：
 
@@ -237,7 +306,7 @@ graph TB
 - 🔌 **能力边界**：明确各模块职责，避免能力散化
 - 🔧 **替换性**：支持同类能力的多种实现方案
 
-#### 🔹 第二层：原子层 (Atomic Layer)
+#### 🔬 原子能力层 (Atomic Layer)
 
 原子层是每个模块的**具体实现**，包含具体的开源技术方案：
 
@@ -263,7 +332,7 @@ Storage模块(抽象层)
 
 ### 2.1 原子层技术选型
 
-以下为原子层的具体技术方案：
+以下为原子能力层的具体技术方案：
 
 | 模块 | 开源技术方案 | 说明 | 替代方案 |
 |------|------------|------|--------|
@@ -280,9 +349,9 @@ Storage模块(抽象层)
 4. **File**: Python生态成熟的库,稳定可靠
 5. **Algorithm**: NetworkX专业图算法 + NumPy高性能计算
 
-### 2.2 模块层架构详解
+### 2.2 模块抽象层架构详解
 
-模块层包含5个核心模块，每个模块内部包含多个能力组件：
+模块抽象层包含5个核心模块，每个模块内部包含多个能力组件：
 
 ```mermaid
 graph TB
@@ -327,110 +396,24 @@ graph TB
     end
 ```
 
-### 2.3 模块能力矩阵
+### 2.3 模块与原子能力映射
 
-### 2.4 模块间协作关系
+以下表格展示了模块抽象层如何映射到原子能力层：
 
-```mermaid
-graph LR
-    subgraph Foundation["原子能力层内部依赖"]
-        direction TB
-        
-        LLM["🧠 LLM模块<br/>OpenAI API"]
-        Storage["💾 Storage模块<br/>Faiss + FalkorDB"]
-        NLP["📝 NLP模块<br/>spaCy + HuggingFace"]
-        File["📄 File模块<br/>PyPDF2 + python-docx"]
-        Algorithm["⚙️ Algorithm模块<br/>NetworkX + NumPy"]
-        
-        %% 依赖关系
-        Storage -->|向量化API| LLM
-        NLP -->|高级分析| LLM
-        Storage <-->|实体关联| NLP
-        File -->|文本清洗| Algorithm
-        File -->|实体提取| NLP
-        Algorithm -->|图算法| Storage
-    end
+| 模块抽象层 | 能力组件 | 原子能力层实现 | 说明 |
+|------------|----------|-------------------|------|
+| **🧠 LLM模块** | Caller<br/>PromptBuilder<br/>HistoryManager<br/>Strategy | **OpenAI API**<br/>Claude API<br/>本地模型 | 大模型调用、Prompt管理、历史管理、策略组件 |
+| **💾 Storage模块** | VectorStore<br/>GraphStore<br/>HybridRetriever<br/>SchemaManager | **Faiss** (向量存储)<br/>**FalkorDB** (图数据库) | 向量存储、图谱存储、混合检索(0.6+0.4) |
+| **📝 NLP模块** | EmotionAnalyzer<br/>EntityExtractor<br/>IntentClassifier<br/>Summarizer | **spaCy** (NER)<br/>**HuggingFace** (情感分析) | 情绪分析、实体提取、意图识别、文本摘要 |
+| **📄 File模块** | PDFParser<br/>DocxParser<br/>MarkdownParser<br/>TextParser<br/>PPTParser | **PyPDF2**<br/>**python-docx**<br/>**markdown**<br/>**python-pptx** | 多格式文档解析（PDF/Word/MD/PPT/TXT） |
+| **⚙️ Algorithm模块** | SimilarityCalculator<br/>TimeAnalyzer<br/>TopologicalSorter<br/>StatisticsCalculator | **NetworkX** (图算法)<br/>**NumPy** (数值计算) | 文本相似度、时间解析、拓扑排序、统计计算 |
 
-    style LLM fill:#ffe1e1
-    style Storage fill:#e1f5ff
-    style NLP fill:#fff4e1
-    style File fill:#f3e5f5
-    style Algorithm fill:#e0f2f1
-```
+**映射关系说明**：
+- 🔹 **模块抽象层**：提供统一的接口抽象，屏蔽底层实现差异
+- 🔹 **原子能力层**：提供具体的技术实现，支持替换（如OpenAI→Claude）
+- 🔹 **一对多映射**：一个模块可以有多种原子实现（如LLM模块支持OpenAI/Claude/本地模型）
 
-**协作说明**:
-1. **Storage ← LLM**: 向量化通过LLM的Embedding API
-2. **NLP ← LLM**: 情绪、摘要等高级NLP可调用LLM
-3. **Storage ← NLP**: NER提取的实体存入图谱
-4. **Algorithm ← File**: 文本清洗、标准化
-5. **NLP ← File**: 文档解析后的实体提取
-6. **Storage ← Algorithm**: 图遍历、拓扑排序等
-
-```mermaid
-graph LR
-    subgraph Foundation["原子能力层内部依赖"]
-        direction TB
-        
-        LLM["🧠 LLM模块<br/>OpenAI API"]
-        EMB["🔢 向量化模块<br/>OpenAI Embedding"]
-        VS["💾 向量存储<br/>Faiss"]
-        GS["🕸️ 图存储<br/>FalkorDB"]
-        NLP["📝 NLP工具集<br/>spaCy / HuggingFace"]
-        FP["📄 文件解析<br/>PyPDF2 / python-docx"]
-        ALG["⚙️ Algorithm<br/>NetworkX / NumPy"]
-        
-        %% 依赖关系（连接线文字用简单描述，避免复杂格式）
-        VS -->|需先向量化| EMB
-        GS -->|实体可关联向量| EMB
-        EMB -->|调用Embedding API| LLM
-        NLP -->|情绪/摘要分析| LLM
-        NLP -->|实体提取存入图谱| GS
-        FP -->|文本清洗标准化| ALG
-        FP -->|解析后用于实体提取| NLP
-        ALG -->|图遍历操作图数据| GS
-    end
-
-    style LLM fill:#ffe1e1
-    style VS fill:#e1f5ff
-    style GS fill:#e8f5e9
-    style NLP fill:#fff4e1
-    style FP fill:#f3e5f5
-    style ALG fill:#e0f2f1
-    style EMB fill:#fff9c4
-
-```
-
-**依赖关系说明**:
-
-1. **VectorStore → Embedding → LLM**
-   - 向量存储前,需先通过Embedding模块将文本向量化
-   - Embedding底层调用LLM的Embedding API(如text-embedding-ada-002)
-
-2. **GraphStore ← → Embedding**
-   - 图谱中的实体节点可以关联向量表示
-   - 支持向量+图谱的混合检索
-
-3. **NLP → LLM (可选)**
-   - 情绪分析、摘要生成等高级NLP任务可调用LLM
-   - 基础NER使用spaCy本地模型
-
-4. **NLP → GraphStore**
-   - NER提取的实体存储到图谱中
-   - 构建(Document)-[:MENTIONS]->(Entity)关系
-
-5. **FileParser → Algorithm**
-   - 文本清洗、标准化使用算法模块
-   - 文本分割、去重等预处理
-
-6. **FileParser → NLP**
-   - 解析后的文本进行实体提取
-   - 支持文档级别的NLP分析
-
-7. **Algorithm → GraphStore**
-   - 图遍历、拓扑排序等算法操作图数据
-   - 依赖关系分析、路径查找等
-
-### 2.3 模块能力矩阵
+### 2.4 模块能力矩阵
 
 #### 🧠 LLM模块
 
@@ -487,9 +470,64 @@ graph LR
 | **TopologicalSorter** | 拓扑排序(依赖分析) | tasks + dependencies | 排序结果 | 任务排序、依赖分析 |
 | **StatisticsCalculator** | 统计计算(完成率/延期率/效率) | 数据列表 | 统计指标 | 工作模式分析 |
 
-### 2.4 模块间协作关系
+### 2.5 模块间协作关系
 
-> 💡 **设计原则**: 模块间协作遵循分层原则,上层模块可调用下层模块,同层模块之间通过接口交互。
+模块抽象层内部存在一定的协作关系，以提供更强大的组合能力：
+
+```mermaid
+graph LR
+    subgraph ModuleLayer["模块抽象层内部协作"]
+        direction TB
+        
+        LLM["🧠 LLM模块"]
+        Storage["💾 Storage模块"]
+        NLP["📝 NLP模块"]
+        File["📄 File模块"]
+        Algorithm["⚙️ Algorithm模块"]
+        
+        %% 协作关系
+        Storage -->|向量化依赖LLM Embedding| LLM
+        NLP -->|高级分析使用LLM| LLM
+        Storage <-->|实体与NER互通| NLP
+        File -->|文本清洗| Algorithm
+        File -->|实体提取| NLP
+        Algorithm -->|图算法| Storage
+    end
+
+    style LLM fill:#ffe1e1
+    style Storage fill:#e1f5ff
+    style NLP fill:#fff4e1
+    style File fill:#f3e5f5
+    style Algorithm fill:#e0f2f1
+```
+
+**协作关系说明**：
+
+1. **Storage → LLM (Embedding API)**
+   - VectorStore的向量化需要调用LLM的Embedding API
+   - 如OpenAI的text-embedding-ada-002
+
+2. **NLP → LLM (高级分析)**
+   - EmotionAnalyzer、Summarizer等高级NLP任务可调用LLM
+   - 基础NER使用spaCy本地模型
+
+3. **Storage ↔ NLP (实体关联)**
+   - EntityExtractor提取的实体存储到GraphStore
+   - 构建(Document)-[:MENTIONS]->(Entity)关系
+
+4. **File → Algorithm (文本预处理)**
+   - 文档解析后的文本清洗、标准化
+   - 文本分割、去重等
+
+5. **File → NLP (实体提取)**
+   - 解析后的文档进行NER提取
+   - 支持文档级别的语义分析
+
+6. **Algorithm → Storage (图算法)**
+   - TopologicalSorter对GraphStore中的依赖关系排序
+   - 图遍历、路径查找等
+
+> 💡 **设计原则**: 模块间协作遵循分层原则，上层模块可调用下层模块，同层模块之间通过接口交互。
 
 > 💡 **详细架构图**: 详细的模块能力图和目录结构请参考 [codedetail.md](./codedetail.md)
 
