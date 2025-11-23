@@ -1,7 +1,8 @@
 """
-对话历史管理器
+对话历史管理器 - 组件层
 
 提供对话历史管理、压缩和Token控制功能。
+注意：该组件为旧版实现，建议使用 ConversationHistory + CompressStrategy。
 """
 
 from typing import List, Dict, Optional, Callable, Any

@@ -14,9 +14,11 @@ from loguru import logger
 
 try:
     from falkordb import FalkorDB
+    FALKORDB_AVAILABLE = True
 except ImportError:
     logger.warning("falkordb未安装，请运行: pip install falkordb")
-    raise
+    FalkorDB = None
+    FALKORDB_AVAILABLE = False
 
 from .base import GraphStoreBase
 from ..core.models import GraphNode, GraphEdge

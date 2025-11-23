@@ -1,7 +1,8 @@
 """
-OpenAI调用器 - 原子能力层
+OpenAI调用器 - 核心层
 
 优化版OpenAI调用器，使用tiktoken精确估算token。
+继承BaseLLMCaller，自动获得所有组件能力。
 """
 
 from typing import Optional, List, Dict, AsyncIterator
@@ -15,16 +16,50 @@ except ImportError:
     TIKTOKEN_AVAILABLE = False
     logger.warning("tiktoken未安装，将使用简单估算方法")
 
-from .caller import LLMCallerBase, LLMResponse
+from .base import BaseLLMCaller
+from ..utils import LLMResponse
+from ..components import (
+    HistoryManager,
+    PromptBuilder,
+    CacheStrategy,
+    CompressStrategy,
+    RetryStrategy,
+)
 
 
-class OpenAICaller(LLMCallerBase):
+class OpenAICaller(BaseLLMCaller):
     """OpenAI调用器（优化版）
     
-    主要改进：
+    主要特点：
     1. 使用tiktoken精确估算token
-    2. 移除内部重试逻辑（由RetryStrategy处理）
-    3. 清晰的接口实现
+    2. 继承BaseLLMCaller，自动获得所有组件能力
+    3. 用户调用call()和stream_call()时，自动应用缓存、压缩、重试
+    
+    使用方法：
+        # 创建调用器
+        caller = OpenAICaller(api_key="sk-xxx", model="gpt-3.5-turbo")
+        
+        # 自动应用所有组件能力（推荐）
+        response = await caller.call(messages)  # 自动缓存+压缩+重试
+        
+        # 灵活控制组件启用
+        response = await caller.call(messages, use_cache=False)  # 禁用缓存
+        response = await caller.call(messages, auto_compress=False)  # 禁用压缩
+        response = await caller.call(messages, use_retry=False)  # 禁用重试
+        
+        # 流式调用
+        async for chunk in caller.stream_call(messages):  # 自动压缩
+            print(chunk, end='')
+    
+    可用组件方法（继承自BaseLLMCaller）：
+    - manage_history(): 历史管理
+    - build_prompt(): 提示词构建
+    - build_with_history(): 带历史的提示词
+    - build_few_shot(): Few-shot提示词
+    - get_cache(): 获取缓存
+    - set_cache(): 设置缓存
+    - compress_messages(): 压缩消息
+    - retry_execute(): 重试执行
     """
     
     def __init__(
@@ -33,7 +68,14 @@ class OpenAICaller(LLMCallerBase):
         model: str = "gpt-3.5-turbo",
         base_url: Optional[str] = None,
         timeout: float = 60.0,
-        organization: Optional[str] = None
+        organization: Optional[str] = None,
+        max_tokens: int = 4000,
+        # 组件配置（可选）
+        history_manager: Optional[HistoryManager] = None,
+        prompt_builder: Optional[PromptBuilder] = None,
+        cache_strategy: Optional[CacheStrategy] = None,
+        compress_strategy: Optional[CompressStrategy] = None,
+        retry_strategy: Optional[RetryStrategy] = None,
     ):
         """初始化OpenAI调用器
         
@@ -43,9 +85,26 @@ class OpenAICaller(LLMCallerBase):
             base_url: API基础URL（可选，用于代理）
             timeout: 超时时间（秒）
             organization: 组织ID（可选）
+            max_tokens: 最大token数
+            history_manager: 历史管理器（可选）
+            prompt_builder: 提示词构建器（可选）
+            cache_strategy: 缓存策略（可选）
+            compress_strategy: 压缩策略（可选）
+            retry_strategy: 重试策略（可选）
         """
+        # 初始化基类（集成组件能力）
+        super().__init__(
+            model=model,
+            max_tokens=max_tokens,
+            history_manager=history_manager,
+            prompt_builder=prompt_builder,
+            cache_strategy=cache_strategy,
+            compress_strategy=compress_strategy,
+            retry_strategy=retry_strategy,
+        )
+        
+        # OpenAI特有配置
         self.api_key = api_key
-        self.model = model
         self.base_url = base_url
         self.timeout = timeout
         self.organization = organization
@@ -104,7 +163,7 @@ class OpenAICaller(LLMCallerBase):
         """
         return bool(self.api_key and self._client)
     
-    async def generate(
+    async def _call_llm(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
@@ -114,7 +173,9 @@ class OpenAICaller(LLMCallerBase):
         presence_penalty: float = 0.0,
         **kwargs
     ) -> LLMResponse:
-        """完整生成（等待全部输出）
+        """底层OpenAI调用实现
+        
+        注意：外部应使用call()方法，它会自动应用组件能力。
         
         Args:
             messages: 消息列表，格式为 [{"role": "user", "content": "..."}]
@@ -178,7 +239,7 @@ class OpenAICaller(LLMCallerBase):
             logger.error(error_msg)
             raise
     
-    async def generate_stream(
+    async def _stream_call_llm(
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
@@ -188,7 +249,9 @@ class OpenAICaller(LLMCallerBase):
         presence_penalty: float = 0.0,
         **kwargs
     ) -> AsyncIterator[str]:
-        """流式生成
+        """底层OpenAI流式调用实现
+        
+        注意：外部应使用stream_call()方法，它会自动应用组件能力。
         
         Args:
             messages: 消息列表

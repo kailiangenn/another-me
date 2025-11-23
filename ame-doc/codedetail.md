@@ -241,7 +241,7 @@ service/                       # 服务层
 
 ---
 
-## 2. 基础能力层代码实现
+## 2. 基础能力层设计理念
 
 > 🏛️ **能力基座**: 基础能力层是整个系统的能力基座，提供最小粒度的原子操作
 
@@ -249,58 +249,675 @@ service/                       # 服务层
 > - **模块抽象层**: 定义能力边界和对外接口，屏蔽底层实现细节
 > - **原子能力层**: 提供具体的技术实现(如OpenAI、Faiss、spaCy等)
 
-### 2.0 base.py 设计理念
+### 2.0 核心设计理念：自动调度模式
 
-> 🔑 **扩展性保证**: 每个模块的 `core/base.py` 定义抽象基类，确保用户可以自定义扩展
+> 🎯 **核心理念**: 各个具体实现类只负责核心逻辑，base 基类提供**通用调度能力**的默认实现，确保用户扩展后不会失去基类的调度能力
+
+#### 设计目标
+
+| 目标 | 说明 | 价值 |
+|------|------|------|
+| ✅ **职责分离** | 具体实现类只负责核心逻辑（如 PDFParser 只负责解析 PDF） | 降低实现复杂度 |
+| ✅ **调度能力** | base 基类提供自动调度能力（如 auto_parse 自动推断文件类型） | 提升易用性 |
+| ✅ **能力保留** | 用户覆盖具体实现后，仍保留 base 类的调度能力 | ⭐ **核心价值** |
+| ✅ **扩展性** | 新增实现只需注册，无需修改调度逻辑 | 符合开闭原则 |
+
+#### Foundation 各模块的自动调度设计
+
+下面为 Foundation Layer 的每个模块设计自动调度模式：
+
+**模块列表**：
+1. File 模块 - `auto_parse()` 自动文件解析
+2. NLP 模块 - `auto_analyze()` 自动 NLP 分析
+3. LLM 模块 - `auto_call()` 智能 LLM 调用
+4. Algorithm 模块 - `auto_calculate()` 自动算法调度
+
+> 💡 **完整示例代码**：请参考后续各模块的「代码实现」章节，每个模块都包含完整的自动调度模式示例
+
+---
+
+## 3. 基础能力层代码实现
+
+> 💡 **实现原则**: 遵循「自动调度模式」设计，每个模块的 base.py 提供调度能力，具体实现类只负责核心逻辑
+
+### 3.1 File模块
+
+#### 模块定位
+
+**能力边界**: 文件解析（PDF、Docx、Markdown、PPT等）
+
+**技术选型**: PyPDF2（PDF）、python-docx（Word）、markdown（MD）
+
+**对外接口**: `parse()` - 核心解析方法，`auto_parse()` - 自动调度方法
+
+**自动调度设计** ⭐：
+
+```python
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Dict, Type
+
+class FileParser(ABC):
+    """
+    文件解析器抽象基类
+    
+    设计理念:
+    - 具体解析器只负责核心解析逻辑（PDFParser 只解析 PDF）
+    - base 类提供 auto_parse() 自动调度能力
+    - 用户覆盖具体解析器后，仍保留 auto_parse() 能力 ⭐
+    """
+    
+    # 解析器注册表：文件扩展名 -> 解析器类
+    _parsers: Dict[str, Type['FileParser']] = {}
+    
+    @classmethod
+    def register(cls, file_ext: str, parser_class: Type['FileParser']):
+        """注册解析器 - 支持用户注册自定义解析器"""
+        cls._parsers[file_ext.lower()] = parser_class
+    
+    @abstractmethod
+    def parse(self, file_path: str) -> Dict:
+        """核心解析方法 - 必须由子类实现"""
+        pass
+    
+    @classmethod
+    def auto_parse(cls, file_path: str) -> Dict:
+        """
+        自动解析 - 默认实现，提供文件类型自动推断和调度
+        
+        优势:
+        - 用户传入任意文件，自动选择合适的解析器
+        - 新增解析器后，无需修改调用代码
+        - 用户覆盖具体解析器后，仍保留此能力 ⭐
+        """
+        # 1. 推断文件类型
+        file_ext = Path(file_path).suffix.lower()
+        
+        # 2. 获取对应解析器
+        parser_class = cls.get_parser_for_type(file_ext)
+        if parser_class is None:
+            raise ValueError(f"不支持的文件类型: {file_ext}")
+        
+        # 3. 创建解析器实例并调用
+        parser = parser_class()
+        return parser.parse(file_path)
+    
+    @classmethod
+    def get_parser_for_type(cls, file_ext: str) -> Type['FileParser']:
+        """获取文件类型对应的解析器 - 钩子方法，子类可覆盖"""
+        return cls._parsers.get(file_ext.lower())
+
+
+# ========== 具体实现 ==========
+
+class PDFParser(FileParser):
+    """PDF 解析器 - 只负责解析 PDF"""
+    
+    def parse(self, file_path: str) -> Dict:
+        """使用 PyPDF2 解析 PDF"""
+        import PyPDF2
+        with open(file_path, 'rb') as f:
+            reader = PyPDF2.PdfReader(f)
+            text = '\n'.join([page.extract_text() for page in reader.pages])
+        return {"text": text, "pages": len(reader.pages)}
+
+
+class DocxParser(FileParser):
+    """Docx 解析器 - 只负责解析 Docx"""
+    
+    def parse(self, file_path: str) -> Dict:
+        """使用 python-docx 解析 Word 文档"""
+        from docx import Document
+        doc = Document(file_path)
+        text = '\n'.join([p.text for p in doc.paragraphs])
+        return {"text": text, "paragraphs": len(doc.paragraphs)}
+
+
+# 注册默认解析器
+FileParser.register('.pdf', PDFParser)
+FileParser.register('.docx', DocxParser)
+```
+
+**使用示例与设计优势**：
+
+```python
+# 场景 1：使用默认解析器
+result = FileParser.auto_parse("/path/to/document.pdf")  # 自动使用 PDFParser
+
+# 场景 2：用户覆盖 PDF 解析器
+class CustomPDFParser(FileParser):
+    def parse(self, file_path: str) -> Dict:
+        import pdfplumber  # 使用 pdfplumber 代替 PyPDF2
+        # ...
+
+FileParser.register('.pdf', CustomPDFParser)
+
+# ✅ 关键：仍然可以使用 auto_parse()！
+result = FileParser.auto_parse("/path/to/document.pdf")  # 自动使用 CustomPDFParser
+
+# 场景 3：新增 Excel 支持
+class ExcelParser(FileParser):
+    def parse(self, file_path: str) -> Dict:
+        import pandas as pd
+        # ...
+
+FileParser.register('.xlsx', ExcelParser)
+
+# ✅ 无需修改调度逻辑，auto_parse() 自动支持！
+result = FileParser.auto_parse("/path/to/data.xlsx")  # 自动使用 ExcelParser
+```
+
+| 场景 | 传统设计 | 本设计 |
+|------|----------|--------|
+| **用户覆盖 PDF 解析器** | ❌ 失去 auto_parse 能力 | ✅ 仍保留 auto_parse |
+| **新增 Excel 支持** | ❌ 需修改调度逻辑 | ✅ 只需 register |
+| **批量处理多种文件** | ❌ 需为每种类型写不同代码 | ✅ 统一调用 auto_parse() |
+
+---
+
+### 3.2 NLP模块
+
+#### 模块定位
+
+**能力边界**: 自然语言处理（情感分析、实体提取、意图识别）
+
+**技术选型**: spaCy（NER）、HuggingFace Transformers（情感分析）
+
+**对外接口**: `analyze()` - 核心分析方法，`auto_analyze()` - 自动调度方法
+
+**自动调度设计** ⭐：
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, List, Type
+from enum import Enum
+
+class NLPTask(Enum):
+    """NLP 任务类型"""
+    EMOTION = "emotion"          # 情感分析
+    ENTITY = "entity"            # 实体提取
+    INTENT = "intent"            # 意图识别
+
+class NLPAnalyzer(ABC):
+    """
+    NLP 分析器抽象基类
+    
+    设计理念:
+    - 具体分析器只负责核心分析逻辑
+    - base 类提供 auto_analyze() 自动调度能力
+    - 根据任务类型自动选择合适的分析器
+    """
+    
+    # 分析器注册表
+    _analyzers: Dict[NLPTask, Type['NLPAnalyzer']] = {}
+    
+    @classmethod
+    def register(cls, task: NLPTask, analyzer_class: Type['NLPAnalyzer']):
+        cls._analyzers[task] = analyzer_class
+    
+    @abstractmethod
+    def analyze(self, text: str, **kwargs) -> Dict:
+        """核心分析方法 - 必须由子类实现"""
+        pass
+    
+    @classmethod
+    def auto_analyze(cls, text: str, task: NLPTask, **kwargs) -> Dict:
+        """
+        自动分析 - 根据任务类型自动调度分析器
+        
+        优势:
+        - 用户指定任务类型，自动选择分析器
+        - 用户覆盖具体分析器后，仍保留此能力 ⭐
+        """
+        analyzer_class = cls._analyzers.get(task)
+        if analyzer_class is None:
+            raise ValueError(f"不支持的任务类型: {task}")
+        
+        analyzer = analyzer_class()
+        return analyzer.analyze(text, **kwargs)
+
+
+# ========== 具体实现 ==========
+
+class EmotionAnalyzer(NLPAnalyzer):
+    """情感分析器 - 只负责情感分析"""
+    
+    def analyze(self, text: str, **kwargs) -> Dict:
+        from transformers import pipeline
+        classifier = pipeline("sentiment-analysis")
+        result = classifier(text)[0]
+        return {"emotion": result['label'], "score": result['score']}
+
+
+# 注册默认分析器
+NLPAnalyzer.register(NLPTask.EMOTION, EmotionAnalyzer)
+```
+
+**使用示例**：
+
+```python
+# 场景 1：使用默认分析器
+result = NLPAnalyzer.auto_analyze("I love this!", NLPTask.EMOTION)
+
+# 场景 2：用户覆盖情感分析器
+class ChineseEmotionAnalyzer(NLPAnalyzer):
+    def analyze(self, text: str, **kwargs) -> Dict:
+        # 使用中文模型
+        pass
+
+NLPAnalyzer.register(NLPTask.EMOTION, ChineseEmotionAnalyzer)
+
+# ✅ 关键：仍然可以使用 auto_analyze()！
+result = NLPAnalyzer.auto_analyze("这个产品太棒了！", NLPTask.EMOTION)
+```
+
+---
+
+### 3.3 LLM模块
+
+#### 模块定位
+
+**能力边界**: 大语言模型调用、提示词管理、历史管理
+
+**技术选型**: OpenAI API (GPT-4/GPT-3.5-turbo)
+
+**对外接口**: `call()` - 核心调用方法，`auto_call()` - 智能调度方法
+
+**自动调度设计** ⭐：
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Type
+from enum import Enum
+
+class LLMTaskType(Enum):
+    """LLM 任务类型"""
+    CHAT = "chat"
+    SUMMARIZE = "summarize"
+    TRANSLATE = "translate"
+    CODE_GEN = "code_gen"
+
+class LLMCaller(ABC):
+    """
+    LLM 调用器抽象基类
+    
+    设计理念:
+    - 具体调用器只负责 API 调用
+    - base 类提供 auto_call() 智能调度能力
+    - 根据任务类型自动选择模型和提示词
+    """
+    
+    # 默认模型配置
+    _default_models: Dict[LLMTaskType, str] = {
+        LLMTaskType.SUMMARIZE: "gpt-3.5-turbo",
+        LLMTaskType.CODE_GEN: "gpt-4",
+    }
+    
+    # 提示词模板
+    _prompt_templates: Dict[LLMTaskType, str] = {
+        LLMTaskType.SUMMARIZE: "请总结以下内容：\n\n{content}\n\n总结：",
+        LLMTaskType.TRANSLATE: "请将以下文本翻译成{target_lang}：\n\n{content}",
+    }
+    
+    @abstractmethod
+    def call(self, prompt: str, model: str, **kwargs) -> str:
+        """核心调用方法 - 必须由子类实现"""
+        pass
+    
+    @classmethod
+    def auto_call(cls, content: str, task: LLMTaskType, caller_instance: 'LLMCaller', **kwargs) -> str:
+        """
+        自动调用 - 根据任务类型自动选择模型和构建提示词
+        
+        优势:
+        - 自动选择合适的模型
+        - 自动构建提示词
+        - 用户覆盖具体调用器后，仍保留此能力 ⭐
+        """
+        # 1. 选择模型
+        model = kwargs.pop('model', None) or cls._default_models.get(task, "gpt-3.5-turbo")
+        
+        # 2. 构建提示词
+        template = cls._prompt_templates.get(task)
+        prompt = template.format(content=content, **kwargs) if template else content
+        
+        # 3. 调用 LLM
+        return caller_instance.call(prompt, model, **kwargs)
+
+
+# ========== 具体实现 ==========
+
+class OpenAICaller(LLMCaller):
+    """OpenAI 调用器 - 只负责调用 OpenAI API"""
+    
+    def __init__(self, api_key: str):
+        import openai
+        self.client = openai.Client(api_key=api_key)
+    
+    def call(self, prompt: str, model: str, **kwargs) -> str:
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+```
+
+**使用示例**：
+
+```python
+caller = OpenAICaller(api_key="xxx")
+
+# 自动摘要（自动选择 gpt-3.5-turbo，自动构建提示词）
+result = LLMCaller.auto_call(
+    content="Long article...",
+    task=LLMTaskType.SUMMARIZE,
+    caller_instance=caller
+)
+
+# 自动代码生成（自动选择 gpt-4）
+result = LLMCaller.auto_call(
+    content="",
+    task=LLMTaskType.CODE_GEN,
+    caller_instance=caller,
+    requirement="实现快速排序"
+)
+```
+
+---
+
+### 3.4 Algorithm模块
+
+#### 模块定位
+
+**能力边界**: 算法工具（相似度计算、图算法、时间解析）
+
+**技术选型**: NumPy（数值计算）、NetworkX（图算法）
+
+**对外接口**: `calculate()` - 核心计算方法，`auto_calculate()` - 自动调度方法
+
+**自动调度设计** ⭐：
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Type, Any, List
+from enum import Enum
+
+class AlgorithmTask(Enum):
+    """Algorithm 任务类型"""
+    TEXT_SIMILARITY = "text_similarity"
+    VECTOR_SIMILARITY = "vector_similarity"
+
+class AlgorithmCalculator(ABC):
+    """
+    算法计算器抽象基类
+    
+    设计理念:
+    - 具体计算器只负责核心算法逻辑
+    - base 类提供 auto_calculate() 自动调度能力
+    """
+    
+    _calculators: Dict[AlgorithmTask, Type['AlgorithmCalculator']] = {}
+    
+    @classmethod
+    def register(cls, task: AlgorithmTask, calculator_class: Type['AlgorithmCalculator']):
+        cls._calculators[task] = calculator_class
+    
+    @abstractmethod
+    def calculate(self, *args, **kwargs) -> Any:
+        """核心计算方法 - 必须由子类实现"""
+        pass
+    
+    @classmethod
+    def auto_calculate(cls, task: AlgorithmTask, *args, **kwargs) -> Any:
+        """
+        自动计算 - 根据任务类型自动调度算法
+        
+        优势:
+        - 自动选择合适的算法
+        - 用户覆盖具体算法后，仍保留此能力 ⭐
+        """
+        calculator_class = cls._calculators.get(task)
+        if calculator_class is None:
+            raise ValueError(f"不支持的算法任务: {task}")
+        
+        calculator = calculator_class()
+        return calculator.calculate(*args, **kwargs)
+
+
+class VectorSimilarityCalculator(AlgorithmCalculator):
+    """向量相似度计算器 - 只负责余弦相似度计算"""
+    
+    def calculate(self, vec1: List[float], vec2: List[float], **kwargs) -> float:
+        import numpy as np
+        return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+
+AlgorithmCalculator.register(AlgorithmTask.VECTOR_SIMILARITY, VectorSimilarityCalculator)
+```
+
+**使用示例**：
+
+```python
+# 自动计算向量相似度
+result = AlgorithmCalculator.auto_calculate(
+    AlgorithmTask.VECTOR_SIMILARITY,
+    [1, 2, 3],
+    [4, 5, 6]
+)
+```
+
+---
+
+### 3.5 设计优势总结
+
+以上所有模块都遵循相同的自动调度模式，提供一致的设计体验：
+
+| 优势 | 说明 | 示例 |
+|------|------|------|
+| ✅ **职责分离** | 具体实现类只负责核心逻辑 | PDFParser 只解析 PDF，EmotionAnalyzer 只做情感分析 |
+| ✅ **调度能力** | base 类提供自动调度能力 | `auto_parse()`, `auto_analyze()`, `auto_call()`, `auto_calculate()` |
+| ✅ **能力保留** ⭐ | 用户覆盖具体实现后，仍保留 base 类的调度能力 | 覆盖 PDFParser 后，`auto_parse()` 仍然可用 |
+| ✅ **扩展性** | 新增实现只需注册，无需修改调度逻辑 | 注册新的 ExcelParser，`auto_parse()` 自动支持 |
+| ✅ **一致性** | 所有模块遵循相同的设计模式 | File/NLP/LLM/Algorithm 都使用 `auto_*` 命名 |
+| ✅ **易用性** | 用户只需一个方法调用，无需关心底层细节 | `auto_parse(path)` 自动处理一切 |
 
 **设计原则**：
+- **开闭原则 (OCP)**: 对扩展开放，对修改关闭
+- **单一职责 (SRP)**: 具体实现只负责一个核心功能
+- **依赖倒置 (DIP)**: 上层依赖抽象，不依赖具体实现
+- **注册模式**: 通过注册机制实现动态扩展
+- **模板方法**: base 类定义算法骨架，子类填充细节
 
-1. **开闭原则** (Open-Closed Principle)
-   - 对扩展开放：用户可以继承 `base.py` 中的抽象类实现自己的版本
-   - 对修改关闭：上层代码只依赖抽象接口，不感知底层实现变化
+---
 
-2. **里氏替换原则** (Liskov Substitution Principle)
-   - 所有实现类都可以透明替换
-   - 例：`OpenAICaller`、`ClaudeCaller` 都可以替换 `LLMCaller`
+### 3.6 旧版 base.py 设计理念（参考）
 
-3. **依赖倒置原则** (Dependency Inversion Principle)
-   - 上层模块依赖抽象，而非具体实现
-   - 例：`HybridRetriever` 依赖 `VectorStore` 抽象，而非 `FaissStore`
+> 🔑 **核心理念**: 每个模块的 `core/base.py` 定义抽象基类，**抽象核心方法 + 提供默认辅助能力实现**，确保用户可以轻松扩展
 
-**扩展示例**：
+#### 设计原则
 
+**1、开闭原则 (Open-Closed Principle)**
+
+```python
+from abc import ABC, abstractmethod
+from typing import List, Dict, Optional
+import functools
+import time
+import logging
+
+class LLMCaller(ABC):
+    """
+    LLM调用器抽象基类
+    
+    设计理念:
+    - 抽象核心方法: call() - 必须实现
+    - 默认辅助能力: 缓存、重试、批量处理、日志
+    - 钩子方法: 支持子类选择性覆盖
+    """
+    
+    def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self._cache = {}  # 简单缓存
+    
+    # ========== 抽象核心方法 ==========
+    @abstractmethod
+    def call(self, prompt: str, model: str, temperature: float = 0.7, max_tokens: int = 1000) -> str:
+        """
+        核心调用方法 - 必须由子类实现
+        
+        Args:
+            prompt: 提示词
+            model: 模型名称
+            temperature: 温度参数
+            max_tokens: 最大token数
+        
+        Returns:
+            str: LLM生成的文本
+        """
+        pass
+    
+    # ========== 默认辅助能力实现 ==========
+    
+    def call_with_cache(self, prompt: str, model: str, **kwargs) -> str:
+        """
+        带缓存的调用 - 默认实现，子类可覆盖
+        
+        优势: 相同prompt不重复调用、节省API成本
+        """
+        cache_key = f"{model}:{prompt}"
+        if cache_key in self._cache:
+            self.logger.debug(f"缓存命中: {cache_key[:50]}...")
+            return self._cache[cache_key]
+        
+        result = self.call(prompt, model, **kwargs)
+        self._cache[cache_key] = result
+        return result
+    
+    def call_with_retry(self, prompt: str, model: str, max_retries: int = 3, **kwargs) -> str:
+        """
+        带重试的调用 - 默认实现，子类可覆盖
+        
+        优势: 提升稳定性、容错处理
+        """
+        for attempt in range(max_retries):
+            try:
+                return self.call(prompt, model, **kwargs)
+            except Exception as e:
+                self.logger.warning(f"第{attempt + 1}次尝试失败: {e}")
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(2 ** attempt)  # 指数退避
+    
+    def batch_call(self, prompts: List[str], model: str, **kwargs) -> List[str]:
+        """
+        批量调用 - 默认实现，子类可覆盖以优化性能
+        
+        优势: 支持批量处理、提升吞吐量
+        """
+        return [self.call(prompt, model, **kwargs) for prompt in prompts]
+    
+    # ========== 钩子方法 ==========
+    
+    def before_call(self, prompt: str, model: str, **kwargs) -> None:
+        """调用前钩子 - 子类可覆盖以添加自定义逻辑"""
+        self.logger.info(f"开始调用 {model}: {prompt[:50]}...")
+    
+    def after_call(self, prompt: str, model: str, result: str, **kwargs) -> None:
+        """调用后钩子 - 子类可覆盖以添加自定义逻辑"""
+        self.logger.info(f"调用完成 {model}: {len(result)} chars")
 ```
-# 用户可以自定义 LLM 实现
+
+**2、里氏替换原则 (Liskov Substitution Principle)**
+
+```python
+# 用户只需实现核心方法，自动获得所有辅助能力
 from ame.foundation.llm.core.base import LLMCaller
 
-class CustomLLMCaller(LLMCaller):
-    """[用户自定义] 本地LLM调用器"""
+class OpenAICaller(LLMCaller):
+    """
+    OpenAI实现 - 只需实现 call() 核心方法
+    自动继承: call_with_cache(), call_with_retry(), batch_call()
+    """
     
-    def call(self, prompt: str, model: str, temperature: float, max_tokens: int) -> str:
-        # 调用本地 LLaMA 模型
+    def __init__(self, api_key: str):
+        super().__init__()
+        self.api_key = api_key
+        self.client = openai.Client(api_key=api_key)
+    
+    def call(self, prompt: str, model: str, temperature: float = 0.7, max_tokens: int = 1000) -> str:
+        """OpenAI API 调用 - 只需实现这一个方法"""
+        self.before_call(prompt, model)  # 调用钩子
+        
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        result = response.choices[0].message.content
+        
+        self.after_call(prompt, model, result)  # 调用钩子
+        return result
+
+
+class CustomLLMCaller(LLMCaller):
+    """
+    用户自定义实现 - 可选择性覆盖辅助能力
+    """
+    
+    def call(self, prompt: str, model: str, **kwargs) -> str:
+        """实现本地LLaMA模型调用"""
         return self.local_llama.generate(prompt)
     
-    def call_stream(self, prompt: str, model: str):
-        # 流式输出
-        for chunk in self.local_llama.stream(prompt):
-            yield chunk
+    def batch_call(self, prompts: List[str], model: str, **kwargs) -> List[str]:
+        """覆盖批量调用，使用本地模型的优化实现"""
+        return self.local_llama.batch_generate(prompts)  # 使用本地批量接口
 
-# 系统自动支持，无需修改上层代码
-caller = CustomLLMCaller()
-response = caller.call("Hello", "llama-7b", 0.7, 100)
+
+# 透明替换 - 所有实现都可以透明替换
+caller: LLMCaller = OpenAICaller(api_key="xxx")  # 或 CustomLLMCaller()
+
+# 自动获得缓存能力
+response = caller.call_with_cache("Hello", "gpt-4")
+
+# 自动获得重试能力
+response = caller.call_with_retry("Hello", "gpt-4", max_retries=5)
+
+# 自动获得批量处理能力
+responses = caller.batch_call(["Hello", "Hi", "Hey"], "gpt-4")
 ```
 
-**base.py 核心职责**：
+**3、依赖倒置原则 (Dependency Inversion Principle)**
 
-| 模块 | base.py 定义的抽象类 | 说明 |
-|------|---------------------|------|
-| **LLM** | `LLMCaller` | 定义 `call()`, `call_stream()`, `batch_call()` 接口 |
-| **Embedding** | `Embedding` | 定义 `embed()`, `embed_batch()` 接口 |
-| **Vector** | `VectorStore` | 定义 `add()`, `search()` 接口 |
-| **Graph** | `GraphStore` | 定义 `add_node()`, `add_edge()`, `query()` 接口 |
-| **NLP** | `EmotionAnalyzer`, `EntityExtractor`, `IntentClassifier`, `Summarizer` | 定义各自NLP能力接口 |
-| **File** | `FileParser` | 定义 `parse()` 统一接口 |
-| **Algorithm** | `SimilarityCalculator`, `TimeAnalyzer`, `Sorter` | 定义算法类接口 |
+```python
+# 上层模块依赖抽象，而非具体实现
+class HybridRetriever:
+    """
+    混合检索器 - 依赖 VectorStore 抽象，而非 FaissStore
+    
+    优势: 可以替换为任何 VectorStore 实现 (Faiss, Milvus, Qdrant...)
+    """
+    
+    def __init__(self, vector_store: VectorStore, graph_store: GraphStore):
+        self.vector_store = vector_store  # 依赖抽象
+        self.graph_store = graph_store    # 依赖抽象
+    
+    def retrieve(self, query_vector: List[float], top_k: int) -> List[Dict]:
+        # 自动使用 VectorStore 的缓存、重试等能力
+        vector_results = self.vector_store.search(query_vector, top_k)
+        graph_results = self.graph_store.query(cypher, params)
+        return self._fuse(vector_results, graph_results)
+```
+
+#### 设计优势总结
+
+| 优势 | 说明 | 示例 |
+|------|------|------|
+| ✅ **扩展性** | 用户只需实现核心方法，其他辅助能力可直接继承使用 | `OpenAICaller` 只实现 `call()`，自动获得 `call_with_cache()`, `call_with_retry()`, `batch_call()` |
+| ✅ **复用性** | 避免在每个具体实现中重复相同的辅助逻辑 | 缓存、重试、日志逻辑在 `base.py` 中统一实现，所有子类自动继承 |
+| ✅ **一致性** | 所有实现类共享相同的辅助能力行为，便于统一升级和维护 | 升级缓存策略时，只需修改 `base.py`，所有子类自动受益 |
+| ✅ **灵活性** | 用户可以选择性地覆盖某些默认实现，保持完全自定义的可能性 | `CustomLLMCaller` 覆盖 `batch_call()` 使用本地模型的优化实现 |
+| ✅ **降低门槛** | 新手用户只需关注核心逻辑，无需实现繁琐的辅助功能 | 实现一个新的LLM接口，只需 10 行代码 vs 100+ 行（如果要自己实现所有功能） |
 
 ---
 
@@ -456,8 +1073,7 @@ class VectorStore(ABC):
     def update(self, id: str, vector: List[float], metadata: Dict) -> bool:
         """更新向量"""
         pass
-
----
+```
 
 ### 2.3 Graph模块
 
@@ -1044,7 +1660,7 @@ graph_store.update_edge(edge_id, {'invalid_time': '2024-12-31'})
 
 #### Cypher查询示例
 
-``cypher
+```cypher
 # 查询当前仍有效的喜好
 MATCH (u:User)-[r:LIKES]->(e:Entity)
 WHERE r.invalid_time IS NULL

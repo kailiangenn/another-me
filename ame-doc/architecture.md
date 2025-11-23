@@ -300,6 +300,32 @@ graph TB
 
 **两层架构说明**：
 
+> 🏛️ **核心理念**: 采用**模块抽象层(Module Layer) + 原子能力层(Atomic Layer)**的两层设计
+> - **模块抽象层**: 定义能力边界，屏蔽底层实现差异，**通过base.py提供默认实现**
+> - **原子能力层**: 提供具体的技术实现方案
+
+> 🎯 **base.py 自动调度模式** ⭐ (开闭原则 + 里氏替换 + 依赖倒置):
+> 
+> **设计目标**：
+> - ✅ **职责分离**: 具体实现类只负责核心逻辑（如 PDFParser 只解析 PDF）
+> - ✅ **调度能力**: base 类提供自动调度能力（如 `auto_parse()` 自动推断文件类型）
+> - ✅ **能力保留**: 用户覆盖具体实现后，仍保留 base 类的调度能力 ⭐ **核心价值**
+> - ✅ **扩展性**: 新增实现只需注册，无需修改调度逻辑
+> 
+> **各模块的自动调度方法**：
+> 1. **File 模块**: `auto_parse(file_path)` - 自动推断文件类型并调度相应解析器
+> 2. **NLP 模块**: `auto_analyze(text, task)` - 根据任务类型自动调度分析器
+> 3. **LLM 模块**: `auto_call(content, task, caller)` - 根据任务类型自动选择模型和提示词
+> 4. **Algorithm 模块**: `auto_calculate(task, *args)` - 根据任务类型自动选择算法
+> 
+> **设计优势**：
+> - ✅ **用户覆盖 PDF 解析器** → 仍保留 `auto_parse()` 能力
+> - ✅ **新增 Excel 支持** → 只需 `register()`，`auto_parse()` 自动支持
+> - ✅ **批量处理多种文件** → 统一调用 `auto_parse()`
+> - ✅ **扩展新分析器** → 符合开闭原则，无需修改现有代码
+> 
+> 📝 **详细示例**: 请参考 [codedetail.md](./codedetail.md) 的「基础能力层设计理念」章节
+
 #### ⭐ 模块抽象层 (Module Layer)
 
 模块层定义了5个核心能力模块，每个模块提供一类能力的抽象接口：
@@ -307,7 +333,8 @@ graph TB
 | 模块 | 能力边界 | 对外接口 | 设计原则 |
 |------|----------|----------|----------|
 | **🧠 LLM模块** | 大模型调用、Prompt管理 | `call()`, `build_prompt()`, `manage_history()` | 屏蔽具体LLM实现细节 |
-| **💾 Storage模块** | 向量存储、图存储、混合检索 | `vector_search()`, `graph_query()`, `hybrid_retrieve()` | 统一存储抽象层 |
+| **🔢 Vector模块** | 向量存储与相似度检索 | `add()`, `search()` | 轻量高效的向量能力 |
+| **🕸️ Graph模块** | 图谱存储与关系查询 | `add_node()`, `add_edge()`, `query()` | 支持时间属性的图计算 |
 | **📝 NLP模块** | NER、情感分析、意图识别 | `extract_entity()`, `analyze_emotion()`, `classify_intent()` | 通用NLP能力封装 |
 | **📄 File模块** | 多格式文档解析 | `parse(file)` | 自动识别格式 |
 | **⚙️ Algorithm模块** | 文本相似度、时间解析、拓扑排序 | `calculate_similarity()`, `parse_time()`, `topo_sort()` | 通用算法工具集 |
@@ -324,15 +351,18 @@ graph TB
 | 模块 | 原子层实现 | 说明 | 替代方案 |
 |------|------------|------|----------|
 | **🧠 LLM** | OpenAI API, Claude, 本地模型 | GPT-4/GPT-3.5-turbo | Anthropic Claude, Google Gemini, LLaMA |
-| **💾 Storage** | **Faiss**(向量) + **FalkorDB**(图) | 轻量高效 + Redis生态 | Milvus + Neo4j, Qdrant + ArangoDB |
+| **🔢 Vector** | **Faiss** | 轻量高效的向量存储 | Milvus, Qdrant, Weaviate |
+| **🕸️ Graph** | **FalkorDB** | Redis生态集成的图数据库 | Neo4j, ArangoDB, Nebula Graph |
 | **📝 NLP** | **spaCy** + **HuggingFace** | 工业级 + 生态丰富 | NLTK, Stanford CoreNLP, AllenNLP |
 | **📄 File** | **PyPDF2**, **python-docx**, **markdown** | Python生态成熟 | pdfplumber, PyMuPDF, mammoth |
 | **⚙️ Algorithm** | **NetworkX** + **NumPy** | 专业图算法 + 高性能计算 | SciPy, pandas, scikit-learn |
 
-**Storage模块示例**：
+**Vector 与 Graph 模块示例**：
 ```
-Storage模块(抽象层)
-├── Faiss(向量存储)     ← 原子层实现
+Vector模块(抽象层)
+└── Faiss(向量存储)     ← 原子层实现
+
+Graph模块(抽象层)
 └── FalkorDB(图数据库)   ← 原子层实现
 ```
 
@@ -428,8 +458,19 @@ graph TB
 
 **映射关系说明**：
 - 🔹 **模块抽象层**：提供统一的接口抽象，屏蔽底层实现差异
+  - `base.py` 定义核心抽象方法 + **提供自动调度能力实现** ⭐
+  - 用户扩展时只需实现核心方法，自动获得调度能力（如 `auto_parse()`）
+  - **核心价值**：用户覆盖具体实现后，不会失去 base 类的自动调度能力
 - 🔹 **原子能力层**：提供具体的技术实现，支持替换（如OpenAI→Claude）
+  - 继承 `base.py` 抽象基类，实现核心方法（如 `parse()`）
+  - 可选择性覆盖默认实现以定制行为
 - 🔹 **一对多映射**：一个模块可以有多种原子实现（如LLM模块支持OpenAI/Claude/本地模型）
+
+**自动调度示例**：
+- File 模块：`auto_parse(file_path)` 自动推断文件类型并调度相应解析器
+- NLP 模块：`auto_analyze(text, task)` 根据任务类型自动调度分析器
+- LLM 模块：`auto_call(content, task, caller)` 根据任务类型自动选择模型和提示词
+- Algorithm 模块：`auto_calculate(task, *args)` 根据任务类型自动选择算法
 
 ### 2.4 模块能力矩阵
 
@@ -627,7 +668,7 @@ graph LR
 
 > 💡 **代码实现**: 详细的代码示例请参考 [codedetail.md](./codedetail.md) - LLM模块部分
 
-> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - Storage模块部分
+> 💡 **代码实现**: 详细的代码示例和目录结构请参考 [codedetail.md](./codedetail.md) - Vector模块和Graph模块部分
     
 
 

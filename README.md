@@ -77,7 +77,35 @@ AME 采用清晰的**三层架构**,实现职责分离和高度可复用:
 - ✅ 支持实例缓存和复用
 - ✅ 提供预设能力包(Life/Work)
 
-📖 **详细架构文档**: [ame-doc/architecture.md](ame-doc/architecture.md)
+### 🆕 LLM模块重构 (2025-11-23)
+
+**重大架构改进**: LLM模块已完成重构，采用Mixin模式集成组件能力：
+
+**核心改进**:
+- ✅ **BaseLLMCaller**: 通过Mixin模式自动集成所有组件能力
+- ✅ **统一策略模块**: 所有策略集中在`strategy.py`文件中管理
+- ✅ **扩展性增强**: 自定义Caller只需实现3个抽象方法
+- ✅ **灵活策略组合**: 移除预设Pipe类，支持调用方自由组合策略
+
+**快速示例**:
+```python
+from ame.foundation.llm.core import OpenAICaller
+
+# 创建调用器（自动获得所有组件能力）
+caller = OpenAICaller(api_key="sk-...")
+
+# 使用组件能力
+managed = caller.manage_history(messages)  # 历史管理
+prompt = caller.build_prompt(template, vars)  # 提示词构建
+cached = caller.get_cache(messages)  # 缓存获取
+result = caller.compress_messages(messages)  # 消息压缩
+
+# LLM调用
+response = await caller.call(messages)
+```
+
+📖 **详细重构文档**: [ame-doc/llm_refactoring.md](ame-doc/llm_refactoring.md)  
+📖 **完整架构文档**: [ame-doc/architecture.md](ame-doc/architecture.md)
 
 ---
 

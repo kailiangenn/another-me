@@ -1,34 +1,28 @@
-"""
-LLM - LLM 调用能力
+"""LLM - LLM 调用能力
 
-提供统一的 LLM 调用接口，支持多种 LLM 提供商。
-
-三层架构：
-- Core Layer (核心层): 数据模型、会话管理和异常
-- Atomic Layer (原子能力层): 基础不可分的能力单元
-- Pipeline Layer (管道能力层): 场景化组合能力
+三层结构：
+- utils/ - 通用工具（数据模型和异常）
+- core/ - 核心实现（调用器基类和具体实现）
+- components/ - 组件层（提示词、历史管理、策略）
 
 使用指南：
-- 对话场景: 使用 SessionPipe
-- 文档分析: 使用 DocumentPipe
+- 对话模式: caller.chat("你好")
+- 流式对话: caller.chat_stream("讲个故事")
+- Agent任务: caller.agent(prompt="提取人名", task_type="ner")
+- 历史管理: ConversationHistory（数据）+ HistoryManager（功能）
 """
 
-# ===== Core Layer - 核心层 =====
-from .core import (
-    # 枚举
-    CallMode,
+# ===== Utils Layer - 通用工具 =====
+from .utils import (
     # 数据模型
     LLMResponse,
+    ConversationHistory,
     CompressContext,
     CompressResult,
-    PipelineContext,
-    PipelineResult,
     # 辅助函数
     create_user_message,
     create_assistant_message,
     create_system_message,
-    # 历史管理
-    ConversationHistory,
     # 异常
     LLMError,
     CallerNotConfiguredError,
@@ -37,66 +31,48 @@ from .core import (
     CacheError,
 )
 
-# ===== Atomic Layer - 原子能力层 =====
-from .atomic import (
-    # 调用器
-    LLMCallerBase,
-    StreamCaller,
+# ===== Core Layer - 核心实现 =====
+from .core import (
+    BaseLLMCaller,
     OpenAICaller,
-    # 策略
+)
+
+# ===== Components Layer - 组件层 =====
+from .components import (
+    # 提示词和管理器
+    PromptBuilder,
+    HistoryManager,
+    CompressionStrategy,
+    # 策略组件
     CacheStrategy,
     CompressStrategy,
-    SessionCompressStrategy,
-    DocumentCompressStrategy,
-    ChunkingCompressStrategy,
     RetryStrategy,
 )
 
-# ===== Pipeline Layer - 管道能力层 =====
-from .pipeline import (
-    PipelineBase,
-    SessionPipe,
-    DocumentPipe,
-)
-
 __all__ = [
-    # ===== Core =====
-    # 枚举
-    "CallMode",
-    # 响应
+    # ===== Utils =====
     "LLMResponse",
-    # 压缩
+    "ConversationHistory",
     "CompressContext",
     "CompressResult",
-    # 管道
-    "PipelineContext",
-    "PipelineResult",
-    # 辅助函数
     "create_user_message",
     "create_assistant_message",
     "create_system_message",
-    # 历史管理
-    "ConversationHistory",
-    # 异常
     "LLMError",
     "CallerNotConfiguredError",
     "TokenLimitExceededError",
     "CompressionError",
     "CacheError",
     
-    # ===== Atomic Layer =====
-    "LLMCallerBase",
-    "StreamCaller",
+    # ===== Core =====
+    "BaseLLMCaller",
     "OpenAICaller",
+    
+    # ===== Components =====
+    "PromptBuilder",
+    "HistoryManager",
+    "CompressionStrategy",
     "CacheStrategy",
     "CompressStrategy",
-    "SessionCompressStrategy",
-    "DocumentCompressStrategy",
-    "ChunkingCompressStrategy",
     "RetryStrategy",
-    
-    # ===== Pipeline Layer =====
-    "PipelineBase",
-    "SessionPipe",
-    "DocumentPipe",
 ]
