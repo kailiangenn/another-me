@@ -52,7 +52,7 @@ class FalkorDBStore(GraphStoreBase):
     def _disconnect(self) -> None:
         """实现：FalkorDB 断开连接"""
         if self.client:
-            self.client.close()
+            self.client.connection.close()
             self.client = None
             self.life_graph = None
             self.work_graph = None

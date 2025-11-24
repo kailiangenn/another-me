@@ -19,12 +19,22 @@ class NodeLabel(str, Enum):
     EMOTION = "Emotion"         # 情绪标签（开心、难过等）
     LOCATION = "Location"       # 地点（家、公司等）
     TOPIC = "Topic"             # 话题（兴趣、关注点）
+    INTEREST = "Interest"       # 兴趣爱好
+    SKILL = "Skill"             # 技能
+    GOAL = "Goal"               # 目标
+    HABIT = "Habit"             # 习惯
+    ACHIEVEMENT = "Achievement" # 成就
     
     # ========== 工作场景节点 ==========
     TODO = "Todo"               # 待办任务
     PROJECT = "Project"         # 项目
     MILESTONE = "Milestone"     # 里程碑
     TAG = "Tag"                 # 标签（分类用）
+    ROLE = "Role"               # 角色/职位
+    ORGANIZATION = "Organization" # 组织/公司
+    MEETING = "Meeting"         # 会议
+    DECISION = "Decision"       # 决策
+    ISSUE = "Issue"             # 问题/议题
     
     # ========== 通用节点 ==========
     DOCUMENT = "Document"       # 文档
@@ -43,6 +53,11 @@ class RelationType(str, Enum):
     LOCATED_AT = "LOCATED_AT"       # 位于（事件发生的地点）
     RELATES_TO = "RELATES_TO"       # 关联（通用关联关系）
     TALKS_ABOUT = "TALKS_ABOUT"     # 讨论（记忆讨论的话题）
+    INTERESTED_IN = "INTERESTED_IN" # 感兴趣
+    HAS_SKILL = "HAS_SKILL"         # 拥有技能
+    WORKS_ON = "WORKS_ON"           # 从事于（目标/项目）
+    DEVELOPS = "DEVELOPS"           # 培养（习惯）
+    ACHIEVED = "ACHIEVED"           # 达成（成就）
     
     # ========== 工作场景关系 ==========
     DEPENDS_ON = "DEPENDS_ON"       # 依赖（任务依赖关系）
@@ -54,6 +69,11 @@ class RelationType(str, Enum):
     CREATED_AT = "CREATED_AT"       # 创建于（创建时间）
     COMPLETED_AT = "COMPLETED_AT"   # 完成于（完成时间）
     TAGGED_AS = "TAGGED_AS"         # 标记为（分类标签）
+    ASSIGNED_TO = "ASSIGNED_TO"     # 分配给（角色）
+    REPORTS_TO = "REPORTS_TO"       # 汇报给（组织结构）
+    ATTENDS = "ATTENDS"             # 参加（会议）
+    MAKES = "MAKES"                 # 做出（决策）
+    RESOLVES = "RESOLVES"           # 解决（问题）
     
     # ========== 通用关系 ==========
     REFERENCES = "REFERENCES"       # 引用（文档引用关系）

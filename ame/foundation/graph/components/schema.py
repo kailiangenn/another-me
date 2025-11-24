@@ -56,6 +56,11 @@ class LifeGraphSchema(BaseGraphSchema):
             NodeLabel.EMOTION,     # 情绪标签
             NodeLabel.LOCATION,    # 地点
             NodeLabel.TOPIC,       # 话题
+            NodeLabel.INTEREST,    # 兴趣爱好
+            NodeLabel.SKILL,       # 技能
+            NodeLabel.GOAL,        # 目标
+            NodeLabel.HABIT,       # 习惯
+            NodeLabel.ACHIEVEMENT, # 成就
             NodeLabel.TIMESTAMP,   # 时间点
             NodeLabel.ENTITY,      # 通用实体
             NodeLabel.DOCUMENT,    # 文档
@@ -70,6 +75,11 @@ class LifeGraphSchema(BaseGraphSchema):
             RelationType.LOCATED_AT,    # 位于（地点）
             RelationType.RELATES_TO,    # 关联
             RelationType.TALKS_ABOUT,   # 讨论（话题）
+            RelationType.INTERESTED_IN, # 感兴趣
+            RelationType.HAS_SKILL,     # 拥有技能
+            RelationType.WORKS_ON,      # 从事于（目标/项目）
+            RelationType.DEVELOPS,      # 培养（习惯）
+            RelationType.ACHIEVED,      # 达成（成就）
             RelationType.REFERENCES,    # 引用
             RelationType.FOLLOWS,       # 跟随（时间序列）
         }
@@ -84,13 +94,18 @@ class WorkGraphSchema(BaseGraphSchema):
         """初始化工作场景的节点和关系（只存储原始事实）"""
         # 工作场景节点（原始事实）
         self.allowed_nodes = {
-            NodeLabel.TODO,        # 待办任务
-            NodeLabel.PROJECT,     # 项目
-            NodeLabel.MILESTONE,   # 里程碑
-            NodeLabel.TAG,         # 标签（分类）
-            NodeLabel.TIMESTAMP,   # 时间点
-            NodeLabel.ENTITY,      # 通用实体
-            NodeLabel.DOCUMENT,    # 文档
+            NodeLabel.TODO,         # 待办任务
+            NodeLabel.PROJECT,      # 项目
+            NodeLabel.MILESTONE,    # 里程碑
+            NodeLabel.TAG,          # 标签（分类）
+            NodeLabel.ROLE,         # 角色/职位
+            NodeLabel.ORGANIZATION, # 组织/公司
+            NodeLabel.MEETING,      # 会议
+            NodeLabel.DECISION,     # 决策
+            NodeLabel.ISSUE,        # 问题/议题
+            NodeLabel.TIMESTAMP,    # 时间点
+            NodeLabel.ENTITY,       # 通用实体
+            NodeLabel.DOCUMENT,     # 文档
         }
         
         # 工作场景关系（原始事实关系）
@@ -105,6 +120,13 @@ class WorkGraphSchema(BaseGraphSchema):
             RelationType.CREATED_AT,        # 创建于
             RelationType.COMPLETED_AT,      # 完成于
             RelationType.TAGGED_AS,         # 标记为
+            # 组织结构关系
+            RelationType.ASSIGNED_TO,       # 分配给（角色）
+            RelationType.REPORTS_TO,        # 汇报给（组织结构）
+            RelationType.ATTENDS,           # 参加（会议）
+            # 决策与问题关系
+            RelationType.MAKES,             # 做出（决策）
+            RelationType.RESOLVES,          # 解决（问题）
             # 通用关系
             RelationType.REFERENCES,        # 引用
             RelationType.FOLLOWS,           # 跟随（时间序列）
