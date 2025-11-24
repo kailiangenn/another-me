@@ -75,19 +75,23 @@ from .algorithm import (
     TaskStatus,
 )
 
-# Storage
-from .storage import (
-    # Core
-    GraphStoreBase,
-    GraphNode,
-    GraphEdge,
+# Graph
+from .graph import (
+    # Enums
     NodeLabel,
     RelationType,
-    # Atomic
+    GraphType,
+    # Models
+    GraphNode,
+    GraphEdge,
+    QueryResult,
+    # Exceptions
+    StorageError,
+    ValidationError,
+    GraphStoreError,
+    # Core
+    GraphStoreBase,
     FalkorDBStore,
-    # Pipeline
-    LifeGraphPipeline,
-    WorkGraphPipeline,
 )
 
 # File
@@ -184,15 +188,19 @@ __all__ = [
     "Priority",
     "TaskStatus",
     
-    # Storage - Core
-    "GraphStoreBase",
-    "GraphNode",
-    "GraphEdge",
+    # Graph - Enums
     "NodeLabel",
     "RelationType",
-    # Storage - Atomic
+    "GraphType",
+    # Graph - Models
+    "GraphNode",
+    "GraphEdge",
+    "QueryResult",
+    # Graph - Exceptions
+    "StorageError",
+    "ValidationError",
+    "GraphStoreError",
+    # Graph - Core
+    "GraphStoreBase",
     "FalkorDBStore",
-    # Storage - Pipeline
-    "LifeGraphPipeline",
-    "WorkGraphPipeline",
 ]
