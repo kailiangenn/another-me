@@ -64,8 +64,11 @@ logs/
 
 # .qoder/
 
-# test files
+# test files for FileParser Module
 ame-tests/foundation/file/test_file
 
 # backup files
 ame-back/
+
+# future plans for embedding and vector storage
+ame-future/
