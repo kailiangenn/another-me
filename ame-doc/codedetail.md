@@ -107,7 +107,7 @@ foundation/                     # 基础能力层
 │       ├── prompt_builder.py # 提示词构建器
 │       └── history_manager.py# 历史管理器
 │
-├── embedding/                 # 🔢 Embedding模块
+├── embedding/                 # 🔢 Embedding模块  ⚠️future plans !!!
 │   ├── __init__.py
 │   ├── utils/
 │   │   ├── __init__.py
@@ -118,7 +118,7 @@ foundation/                     # 基础能力层
 │       ├── base.py           # 抽象基类：Embedding
 │       └── simple_embedding.py # OpenAI Embedding API
 │
-├── vector/                    # 🔢 Vector模块
+├── vector/                    # 🔢 Vector模块  ⚠️future plans !!!
 │   ├── __init__.py
 │   ├── utils/                 # 通用工具
 │   │   ├── __init__.py
