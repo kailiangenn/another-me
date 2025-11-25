@@ -26,7 +26,7 @@ from .utils.exceptions import (
 
 # Core - 抽象基类和实现
 from .core.base import GraphStoreBase
-from .core.falkordb import FalkorDBStore
+from .core.falkordb_store import FalkorDBStore
 
 # Components 不对外暴露，仅供内部使用
 
