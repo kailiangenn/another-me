@@ -48,6 +48,25 @@ class QueryBuilder:
         self._match_clauses.append(f"MATCH ({alias} {{id: ${param_name}}})")
         return self
     
+    def match_nodes_by_properties(
+        self, 
+        properties: Dict[str, Any], 
+        label: Optional[NodeLabel] = None, 
+        alias: str = "n"
+    ) -> "QueryBuilder":
+        """通过属性匹配节点"""
+        prop_conditions = []
+        for key, value in properties.items():
+            param_name = self._add_param(value)
+            prop_conditions.append(f"{key}: ${param_name}")
+        
+        props_str = "{ " + ", ".join(prop_conditions) + " }" if prop_conditions else ""
+        label_str = f":{label.value}" if label else ""
+        
+        clause = f"MATCH ({alias}{label_str} {props_str})"
+        self._match_clauses.append(clause)
+        return self
+    
     def with_relation(
         self,
         relation_type: Optional[RelationType] = None,
@@ -95,6 +114,21 @@ class QueryBuilder:
         )
         return self
     
+    def where_node_property_in(
+        self, 
+        field: str, 
+        values: List[Any], 
+        alias: str = "n"
+    ) -> "QueryBuilder":
+        """添加节点属性 IN 条件"""
+        param_names = []
+        for value in values:
+            param_name = self._add_param(value)
+            param_names.append(f"${param_name}")
+        
+        self._where_clauses.append(f"{alias}.{field} IN [{', '.join(param_names)}]")
+        return self
+    
     def return_nodes(self, alias: str = "n") -> "QueryBuilder":
         """返回节点"""
         self._return_clause = f"RETURN {alias}"
@@ -110,10 +144,44 @@ class QueryBuilder:
         self._return_clause = "RETURN *"
         return self
     
+    def return_count(self, alias: str = "n") -> "QueryBuilder":
+        """返回计数"""
+        self._return_clause = f"RETURN count({alias}) as count"
+        return self
+    
+    def order_by(self, field: str, direction: str = "ASC", alias: str = "n") -> "QueryBuilder":
+        """添加排序"""
+        if self._return_clause:
+            self._return_clause += f" ORDER BY {alias}.{field} {direction}"
+        return self
+    
     def limit(self, count: int) -> "QueryBuilder":
         """限制返回数量"""
         if self._return_clause:
             self._return_clause += f" LIMIT {count}"
+        return self
+    
+    def find_path(
+        self,
+        start_node_id: str,
+        end_node_id: str,
+        max_depth: int = 3,
+        relationship_types: Optional[List[RelationType]] = None
+    ) -> "QueryBuilder":
+        """查找两个节点之间的路径"""
+        start_param = self._add_param(start_node_id)
+        end_param = self._add_param(end_node_id)
+        
+        # 构建关系类型过滤
+        rel_types = ""
+        if relationship_types:
+            type_names = [rt.value for rt in relationship_types]
+            rel_types = f":{ '|'.join(type_names) }"
+        
+        self._match_clauses.append(
+            f"MATCH path = (start {{id: ${start_param}}})-[{rel_types}*1..{max_depth}]->(end {{id: ${end_param}}})"
+        )
+        self._return_clause = "RETURN path"
         return self
     
     def build(self) -> str:

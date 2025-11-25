@@ -135,6 +135,37 @@ class GraphStoreBase(ABC):
             logger.error(f"Failed to get node {node_id} from {graph_type.value}: {str(e)}")
             return None
     
+    def get_nodes_by_properties(
+        self, 
+        properties: Dict[str, Any], 
+        label: Optional[NodeLabel] = None,
+        graph_type: GraphType = GraphType.LIFE
+    ) -> List[GraphNode]:
+        """
+        根据属性获取节点列表
+        
+        Args:
+            properties: 属性键值对
+            label: 节点标签（可选）
+            graph_type: 指定操作哪张表
+        """
+        try:
+            # 使用 QueryBuilder 构建查询
+            query_builder = self.query_builder.reset()
+            cypher = query_builder \
+                .match_nodes_by_properties(properties, label, "n") \
+                .return_nodes("n") \
+                .build()
+            
+            params = query_builder.get_params()
+            graph_name = self._get_graph_name(graph_type)
+            result = self._query(cypher, params, graph_name)
+            
+            return result.nodes
+        except Exception as e:
+            logger.error(f"Failed to get nodes by properties in {graph_type.value}: {str(e)}")
+            return []
+    
     def update_node(self, node_id: str, properties: Dict[str, Any], graph_type: GraphType) -> bool:
         """
         更新节点属性（调用子类实现）
@@ -171,6 +202,39 @@ class GraphStoreBase(ABC):
         except Exception as e:
             logger.error(f"Failed to delete node {node_id} from {graph_type.value}: {str(e)}")
             return False
+    
+    def delete_nodes_by_properties(
+        self, 
+        properties: Dict[str, Any], 
+        label: Optional[NodeLabel] = None,
+        graph_type: GraphType = GraphType.LIFE
+    ) -> int:
+        """
+        根据属性删除节点
+        
+        Args:
+            properties: 属性键值对
+            label: 节点标签（可选）
+            graph_type: 指定操作哪张表
+            
+        Returns:
+            删除的节点数量
+        """
+        try:
+            # 先查询要删除的节点
+            nodes_to_delete = self.get_nodes_by_properties(properties, label, graph_type)
+            
+            # 删除每个节点
+            deleted_count = 0
+            for node in nodes_to_delete:
+                if self.delete_node(node.id, graph_type):
+                    deleted_count += 1
+            
+            logger.info(f"Deleted {deleted_count} nodes from {graph_type.value}")
+            return deleted_count
+        except Exception as e:
+            logger.error(f"Failed to delete nodes by properties in {graph_type.value}: {str(e)}")
+            return 0
     
     # ========== 边操作（公共方法，内化 Schema 验证）==========
     
@@ -338,6 +402,139 @@ class GraphStoreBase(ABC):
         except Exception as e:
             logger.error(f"Failed to find neighbors at time for {node_id} in {graph_type.value}: {str(e)}")
             return []
+    
+    def find_path(
+        self,
+        start_node_id: str,
+        end_node_id: str,
+        graph_type: GraphType,
+        max_depth: int = 3,
+        relationship_types: Optional[List[RelationType]] = None
+    ) -> List[GraphEdge]:
+        """
+        查找两个节点之间的路径
+        
+        Args:
+            start_node_id: 起始节点 ID
+            end_node_id: 结束节点 ID
+            graph_type: 指定操作哪张表
+            max_depth: 最大深度
+            relationship_types: 关系类型列表（可选）
+            
+        Returns:
+            路径中的边列表
+        """
+        try:
+            # 使用 QueryBuilder 构建查询
+            cypher = self.query_builder.reset() \
+                .find_path(start_node_id, end_node_id, max_depth, relationship_types) \
+                .build()
+            
+            params = self.query_builder.get_params()
+            graph_name = self._get_graph_name(graph_type)
+            result = self._query(cypher, params, graph_name)
+            
+            return result.edges
+        except Exception as e:
+            logger.error(f"Failed to find path in {graph_type.value}: {str(e)}")
+            return []
+    
+    def search_nodes(
+        self,
+        graph_type: GraphType,
+        label: Optional[NodeLabel] = None,
+        properties: Optional[Dict[str, Any]] = None,
+        limit: Optional[int] = None,
+        order_by: Optional[str] = None,
+        order_direction: str = "ASC"
+    ) -> List[GraphNode]:
+        """
+        搜索节点（高级查询接口）
+        
+        Args:
+            graph_type: 指定操作哪张表
+            label: 节点标签（可选）
+            properties: 属性过滤条件（可选）
+            limit: 限制返回数量（可选）
+            order_by: 排序字段（可选）
+            order_direction: 排序方向（ASC/DESC）
+            
+        Returns:
+            节点列表
+        """
+        try:
+            # 构建查询
+            query_builder = self.query_builder.reset()
+            
+            # 匹配节点
+            if properties:
+                query_builder.match_nodes_by_properties(properties, label, "n")
+            else:
+                query_builder.match_node(label, "n")
+            
+            # 返回节点
+            query_builder.return_nodes("n")
+            
+            # 排序
+            if order_by:
+                query_builder.order_by(order_by, order_direction, "n")
+            
+            # 限制数量
+            if limit:
+                query_builder.limit(limit)
+            
+            cypher = query_builder.build()
+            params = query_builder.get_params()
+            graph_name = self._get_graph_name(graph_type)
+            result = self._query(cypher, params, graph_name)
+            
+            return result.nodes
+        except Exception as e:
+            logger.error(f"Failed to search nodes in {graph_type.value}: {str(e)}")
+            return []
+    
+    def count_nodes(
+        self,
+        graph_type: GraphType,
+        label: Optional[NodeLabel] = None,
+        properties: Optional[Dict[str, Any]] = None
+    ) -> int:
+        """
+        统计节点数量
+        
+        Args:
+            graph_type: 指定操作哪张表
+            label: 节点标签（可选）
+            properties: 属性过滤条件（可选）
+            
+        Returns:
+            节点数量
+        """
+        try:
+            # 构建查询
+            query_builder = self.query_builder.reset()
+            
+            # 匹配节点
+            if properties:
+                query_builder.match_nodes_by_properties(properties, label, "n")
+            else:
+                query_builder.match_node(label, "n")
+            
+            # 返回计数
+            query_builder.return_count("n")
+            
+            cypher = query_builder.build()
+            params = query_builder.get_params()
+            graph_name = self._get_graph_name(graph_type)
+            result = self._query(cypher, params, graph_name)
+            
+            # 解析计数结果
+            if result.raw_data and result.raw_data.result_set:
+                return result.raw_data.result_set[0][0]
+            return 0
+        except Exception as e:
+            logger.error(f"Failed to count nodes in {graph_type.value}: {str(e)}")
+            return 0
     
     def invalidate_edge(
         self,

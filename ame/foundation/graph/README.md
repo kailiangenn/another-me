@@ -10,6 +10,7 @@ Graph 模块是 AnotherMe 系统的核心组件之一，用于存储和管理用
 2. **双表隔离**：life_graph 和 work_graph 两张表独立存储，互不干扰
 3. **时间属性支持**：所有 Edge 都带有 `create_time`（生效时间）和 `invalid_time`（失效时间）
 4. **可扩展性**：支持动态添加新的节点和关系类型
+5. **Cypher 语法内化**：提供高级接口，用户无需直接编写复杂的 Cypher 语法
 
 ## 架构组成
 
@@ -59,9 +60,53 @@ graph/
 - 查询操作
 - 时间处理
 
-### 4. 存储实现 (core/falkordb_store.py)
+### 4. 查询构建器 (components/query_builder.py)
+
+提供链式 API 构建 Cypher 查询：
+
+- 节点匹配
+- 关系匹配
+- 条件过滤
+- 结果排序和限制
+- 路径查找
+
+### 5. 存储实现 (core/falkordb_store.py)
 
 FalkorDB 的具体实现，只关注底层操作。
+
+## Cypher 语法内化
+
+Graph 模块通过内化 Cypher 语法，让用户无需直接编写复杂的查询语句就能完成各种操作。主要特性包括：
+
+### 1. 高级节点操作接口
+
+- `add_node()`: 添加节点（自动进行 Schema 验证）
+- `get_node()`: 通过 ID 获取节点
+- `get_nodes_by_properties()`: 通过属性获取节点列表
+- `update_node()`: 更新节点属性
+- `delete_node()`: 删除节点
+- `delete_nodes_by_properties()`: 通过属性删除节点
+- `search_nodes()`: 高级搜索节点
+- `count_nodes()`: 统计节点数量
+
+### 2. 高级边操作接口
+
+- `add_edge()`: 添加边（自动进行 Schema 验证）
+- `get_edges()`: 获取边
+- `delete_edge()`: 删除边
+- `invalidate_edge()`: 使边失效（关系演化）
+
+### 3. 高级查询接口
+
+- `find_neighbors()`: 查找邻居节点
+- `find_neighbors_at_time()`: 时间点查询邻居
+- `find_path()`: 查找两个节点之间的路径
+- `search_nodes()`: 搜索节点
+- `count_nodes()`: 统计节点数量
+
+### 4. 自动参数化和安全防护
+
+所有内化接口都使用参数化查询，防止 Cypher 注入攻击。
 
 ## 节点和关系类型
 
@@ -214,6 +259,37 @@ neighbors = store.find_neighbors(
     relation_type=RelationType.INTERESTED_IN,
     direction="out"
 )
+
+# 高级搜索节点
+results = store.search_nodes(
+    graph_type=GraphType.LIFE,
+    label=NodeLabel.INTEREST,
+    properties={"level": "advanced"},
+    limit=10,
+    order_by="name",
+    order_direction="ASC"
+)
+
+# 统计节点数量
+count = store.count_nodes(
+    graph_type=GraphType.LIFE,
+    label=NodeLabel.INTEREST
+)
+```
+
+### 5. 关系演化
+
+```python
+from datetime import datetime
+
+# 使边失效（不删除，只标记失效时间）
+store.invalidate_edge(
+    source_id="person_001",
+    target_id="interest_001",
+    relation_type=RelationType.INTERESTED_IN,
+    graph_type=GraphType.LIFE,
+    invalid_time=datetime(2023, 1, 1)  # 失效时间
+)
 ```
 
 ## 外部推理分析
@@ -249,3 +325,4 @@ def analyze_skill_patterns(store, user_id):
 4. **时间追溯**：通过 create_time 和 invalid_time 可以追溯关系演化历史
 5. **场景隔离**：生活和工作两个图谱独立，互不干扰
 6. **易于扩展**：支持动态添加新的节点和关系类型
+7. **使用简单**：内化 Cypher 语法，用户无需关注底层实现细节
