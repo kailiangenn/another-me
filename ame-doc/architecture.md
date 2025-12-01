@@ -97,8 +97,9 @@ Another-Me是一个**基于个人数据的AI数字分身引擎**，采用**四�
 ### 完整架构视图
 
 ```mermaid
-graph BT
-    subgraph Atomic["🔬 原子能力层 Atomic Layer"]
+%%{init: {'theme': 'default'}}%%
+graph TD
+    subgraph Atomic["🔬 原子能力层"]
         direction LR
         
         subgraph LLM_Atomic["🧠 LLM原子"]
@@ -107,122 +108,72 @@ graph BT
             Local["本地模型"]
         end
         
-        subgraph Vector_Atomic["🔢 Vector原子"]
-            Faiss["Faiss<br/>向量存储"]
-        end
-        
         subgraph Graph_Atomic["🕸️ Graph原子"]
             Falkor["FalkorDB<br/>图数据库"]
         end
         
-        subgraph NLP_Atomic["📝 NLP原子"]
-            spaCy["spaCy<br/>NER"]
-            HF["HuggingFace<br/>情感分析"]
-        end
-        
-        subgraph File_Atomic["📄 File原子"]
+        subgraph File_Atomic["📄 文件处理原子"]
             PyPDF["PyPDF2"]
             Docx["python-docx"]
             MD["markdown"]
             PPT["python-pptx"]
         end
-        
-        subgraph Algo_Atomic["⚙️ Algorithm原子"]
-            NX["NetworkX<br/>图算法"]
-            NP["NumPy<br/>数值计算"]
-        end
     end
-    
-    subgraph Module["⭐ 模块抽象层 Module Layer"]
-        LLM["🧠 LLM模块<br/>Caller + PromptBuilder + HistoryManager"]
-        Vector["🔢 Vector模块<br/>VectorStore + VectorRetriever"]
-        Graph["🕸️ Graph模块<br/>GraphStore + GraphQuery"]
-        NLP["📝 NLP模块<br/>EntityExtractor + EmotionAnalyzer + IntentClassifier"]
-        File["📄 File模块<br/>PDFParser + DocxParser + MarkdownParser"]
-        Algorithm["⚙️ Algorithm模块<br/>SimilarityCalculator + TimeAnalyzer + TopologicalSorter"]
+
+    subgraph Module["⭐ 核心模块层"]
+        LLM["🧠 LLM模块<br/>统一调用接口"]
+        Graph["🕸️ Graph模块<br/>执行图查询/写入"]
+        File["📄 文件处理模块<br/>解析文档内容"]
     end
-    
-    subgraph Capability["🔧 组合能力层 Capability Layer"]
-        direction TB
-        IR[IntentRecognizer]
-        CR[ContextRetriever]
-        DG[DialogueGenerator]
-        ME[MemoryExtractor]
-        DP[DocumentParser]
-        PA[ProjectAnalyzer]
-        TP[TodoParser]
-        TM[TodoManager]
-        PtA[PatternAnalyzer]
-        AG[AdviceGenerator]
+
+    subgraph Capability["🔧 组合能力层"]
+        GQP["GraphQueryPlanner<br/>NL → Cypher/Gremlin"]
+        MI["MemoryIntegrator<br/>Text → Graph Nodes & Edges"]
+        DAP["DocumentAnalysisPlanner<br/>从文档中提取结构化信息"]
+        RMP["ReplyMessagePlanner<br/>生成回复消息"]
     end
-    
-    subgraph Service["🚀 服务层 Service Layer"]
-        CS["💬 ChatService<br/>生活对话"]
-        WPS["📁 WorkProjectService<br/>项目分析"]
-        WTS["✅ WorkTodoService<br/>待办管理"]
-        WAS["💡 WorkAdviceService<br/>工作建议"]
+
+    subgraph Service["🚀 服务层"]
+        CS["💬 ChatService"]
+        WPS["📁 WorkProjectService"]
+        WTS["✅ WorkTodoService"]
+        WAS["💡 WorkAdviceService"]
     end
-    
-    %% 原子层向模块层提供实现
-    OAI -.-> LLM
-    Claude -.-> LLM
-    Local -.-> LLM
-    
-    Faiss -.-> Vector
-    Falkor -.-> Graph
-    
-    spaCy -.-> NLP
-    HF -.-> NLP
-    
-    PyPDF -.-> File
-    Docx -.-> File
-    MD -.-> File
-    PPT -.-> File
-    
-    NX -.-> Algorithm
-    NP -.-> Algorithm
-    
-    %% 模块层向组合层提供能力
-    LLM -.->|提供LLM调用| IR
-    LLM -.->|提供LLM调用| DG
-    LLM -.->|提供LLM调用| ME
-    LLM -.->|提供LLM调用| PA
-    LLM -.->|提供LLM调用| TP
-    LLM -.->|提供LLM调用| AG
-    
-    Vector -.->|提供向量检索| CR
-    Graph -.->|提供图检索| CR
-    Graph -.->|提供图存储| TM
-    Graph -.->|提供图查询| PtA
-    
-    NLP -.->|提供NLP分析| ME
-    NLP -.->|提供NER提取| PA
-    
-    File -.->|提供文件解析| DP
-    
-    Algorithm -.->|提供时间解析| TP
-    Algorithm -.->|提供排序算法| TM
-    Algorithm -.->|提供统计计算| PtA
-    
-    %% 组合层向服务层提供能力
-    IR ==>|组装到| CS
-    CR ==>|组装到| CS
-    DG ==>|组装到| CS
-    ME ==>|组装到| CS
-    
-    DP ==>|组装到| WPS
-    PA ==>|组装到| WPS
-    
-    TP ==>|组装到| WTS
-    TM ==>|组装到| WTS
-    
-    PtA ==>|组装到| WAS
-    AG ==>|组装到| WAS
-    
-    style Atomic fill:#e8f5e9
-    style Module fill:#fff4e1
-    style Capability fill:#fff9c4
-    style Service fill:#e1f5fe
+
+    %% 模块 -> 组合能力
+    LLM -->|提供语义分析| GQP
+    LLM -->|生成回复文本| RMP
+    Graph -->|执行查询| GQP
+    Graph -->|数据持久化| MI
+    File -->|原始文件内容| DAP
+
+    %% 组合能力 -> 服务
+    GQP -->|支持自然语言查询| CS
+    GQP -->|查询项目进展| WPS
+    GQP -->|筛选待办任务| WTS
+    GQP -->|获取行为模式| WAS
+
+    MI -->|持久化对话记忆| CS
+    MI -->|导入项目文档| WPS
+    MI -->|记录新待办| WTS
+    MI -->|更新个人状态| WAS
+
+    DAP -->|解析文档内容| WPS
+    DAP -->|抽取关键信息| WAS
+
+    RMP -->|生成回复| CS
+    RMP -->|提供建议文本| WAS
+
+    classDef atomic fill:#e8f5e9,stroke:#333;
+    classDef module fill:#fff4e1,stroke:#333;
+    classDef capability fill:#fff9c4,stroke:#333;
+    classDef service fill:#e1f5fe,stroke:#333;
+
+    class Atomic atomic
+    class Module module
+    class Capability capability
+    class Service service
+
 ```
 
 ---

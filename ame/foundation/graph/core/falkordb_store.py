@@ -2,13 +2,16 @@
 FalkorDB 图存储实现（只实现底层操作）
 """
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from loguru import logger
 
 try:
     from falkordb import FalkorDB
+    FALKORDB_AVAILABLE = True
 except ImportError:
-    logger.warning("FalkorDB not installed, please install: pip install falkordb")
+    logger.error("FalkorDB not installed, please install: pip install falkordb")
     FalkorDB = None
+    FALKORDB_AVAILABLE = False
 
 from .base import GraphStoreBase
 from ..utils.models import GraphNode, GraphEdge, QueryResult, NodeLabel, RelationType, GraphType
@@ -36,7 +39,7 @@ class FalkorDBStore(GraphStoreBase):
     
     def _connect(self) -> None:
         """实现：FalkorDB 连接逻辑"""
-        if FalkorDB is None:
+        if not FALKORDB_AVAILABLE:
             raise GraphStoreError("FalkorDB not installed")
         
         try:
@@ -47,7 +50,7 @@ class FalkorDBStore(GraphStoreBase):
                 f"Failed to connect to FalkorDB: {str(e)}",
                 host=self.host,
                 port=self.port
-            )
+            ) from e
     
     def _disconnect(self) -> None:
         """实现：FalkorDB 断开连接"""
@@ -90,22 +93,23 @@ class FalkorDBStore(GraphStoreBase):
         try:
             graph = self._get_graph(graph_name)
             
-            # 构建属性字符串
-            props_list = [f"id: '{node.id}'"]
-            for key, value in node.properties.items():
-                if isinstance(value, str):
-                    props_list.append(f"{key}: '{value}'")
-                else:
-                    props_list.append(f"{key}: {value}")
-            props_str = ", ".join(props_list)
+            # 准备参数
+            params = {"id": node.id}
+            params.update(node.properties)
+            
+            # 构建SET子句
+            set_clauses = ["n.id = $id"]
+            for key in node.properties.keys():
+                set_clauses.append(f"n.{key} = ${key}")
+            set_clause = ", ".join(set_clauses)
             
             # 执行 Cypher
-            cypher = f"CREATE (n:{node.label.value} {{{props_str}}}) RETURN n"
-            graph.query(cypher)
+            cypher = f"CREATE (n:{node.label.value}) SET {set_clause}"
+            graph.query(cypher, params)
             return True
         except Exception as e:
             logger.error(f"FalkorDB add_node failed: {str(e)}")
-            raise GraphStoreError(f"Failed to add node: {str(e)}")
+            raise GraphStoreError(f"Failed to add node: {str(e)}") from e
     
     def _get_node(self, node_id: str, graph_name: str) -> Optional[GraphNode]:
         """实现：FalkorDB 获取节点"""
@@ -149,7 +153,7 @@ class FalkorDBStore(GraphStoreBase):
                 params[param_key] = value
             
             set_clause = ", ".join(set_clauses)
-            cypher = f"MATCH (n {{id: $id}}) SET {set_clause} RETURN n"
+            cypher = f"MATCH (n {{id: $id}}) SET {set_clause}"
             
             graph.query(cypher, params)
             return True
@@ -174,32 +178,42 @@ class FalkorDBStore(GraphStoreBase):
         try:
             graph = self._get_graph(graph_name)
             
-            # 构建边属性
-            props_list = []
-            for key, value in edge.properties.items():
-                if isinstance(value, str):
-                    props_list.append(f"{key}: '{value}'")
-                else:
-                    props_list.append(f"{key}: {value}")
-            props_str = ", ".join(props_list) if props_list else ""
-            
-            # 执行 Cypher
-            cypher = f"""
-            MATCH (a {{id: $source_id}}), (b {{id: $target_id}})
-            CREATE (a)-[r:{edge.relation_type.value} {{{props_str}}}]->(b)
-            RETURN r
-            """
-            
+            # 准备参数
             params = {
                 "source_id": edge.source_id,
                 "target_id": edge.target_id
             }
             
+            # 添加边的属性到参数中
+            for key, value in edge.properties.items():
+                param_key = f"prop_{key}"
+                params[param_key] = value
+            
+            # 构建SET子句
+            set_clauses = []
+            for key in edge.properties.keys():
+                param_key = f"prop_{key}"
+                set_clauses.append(f"r.{key} = ${param_key}")
+            set_clause = ", ".join(set_clauses) if set_clauses else ""
+            
+            # 构建完整的Cypher语句
+            if set_clause:
+                cypher = f"""
+                MATCH (a {{id: $source_id}}), (b {{id: $target_id}})
+                CREATE (a)-[r:{edge.relation_type.value}]->(b)
+                SET {set_clause}
+                """
+            else:
+                cypher = f"""
+                MATCH (a {{id: $source_id}}), (b {{id: $target_id}})
+                CREATE (a)-[r:{edge.relation_type.value}]->(b)
+                """
+            
             graph.query(cypher, params)
             return True
         except Exception as e:
             logger.error(f"FalkorDB add_edge failed: {str(e)}")
-            raise GraphStoreError(f"Failed to add edge: {str(e)}")
+            raise GraphStoreError(f"Failed to add edge: {str(e)}") from e
     
     def _get_edges(self, source_id: str, target_id: Optional[str], graph_name: str) -> List[GraphEdge]:
         """实现：FalkorDB 获取边"""
