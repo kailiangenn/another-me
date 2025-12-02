@@ -7,13 +7,14 @@ from collections import defaultdict
 import math
 
 from ..utils.models import GraphNode, GraphEdge, GraphType, NodeLabel, RelationType
-from ..core.base import GraphStoreBase
+# 注意：避免循环导入，不在这里直接导入GraphStoreBase
 
 
 class StructuralAnalyzer:
     """结构化图分析器"""
     
-    def __init__(self, graph_store: GraphStoreBase):
+    def __init__(self, graph_store):
+        # 延迟类型检查，避免循环导入
         self.graph_store = graph_store
     
     def calculate_structural_similarity(self, node_id1: str, node_id2: str, 

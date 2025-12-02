@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from ..utils.models import NodeLabel, RelationType
+from ..utils.exceptions import GraphStoreError
 
 
 class QueryBuilder:
@@ -35,6 +36,10 @@ class QueryBuilder:
         alias: str = "n"
     ) -> "QueryBuilder":
         """匹配节点"""
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
         if label:
             clause = f"MATCH ({alias}:{label.value})"
         else:
@@ -55,6 +60,10 @@ class QueryBuilder:
         alias: str = "n"
     ) -> "QueryBuilder":
         """通过属性匹配节点"""
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
         prop_conditions = []
         for key, value in properties.items():
             param_name = self._add_param(value)
@@ -76,6 +85,10 @@ class QueryBuilder:
         edge_alias: str = "r"
     ) -> "QueryBuilder":
         """添加关系匹配"""
+        # 强制类型检查
+        if relation_type is not None and not isinstance(relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
         rel_str = f":{relation_type.value}" if relation_type else ""
         
         # 构建关系模式
@@ -191,6 +204,12 @@ class QueryBuilder:
         relationship_types: Optional[List[RelationType]] = None
     ) -> "QueryBuilder":
         """查找两个节点之间的路径"""
+        # 强制类型检查
+        if relationship_types is not None:
+            for rt in relationship_types:
+                if not isinstance(rt, RelationType):
+                    raise GraphStoreError("All relationship types must be instances of RelationType enum")
+        
         start_param = self._add_param(start_node_id)
         end_param = self._add_param(end_node_id)
         

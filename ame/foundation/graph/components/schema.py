@@ -5,7 +5,7 @@ from typing import Set
 from loguru import logger
 
 from ..utils.models import NodeLabel, RelationType, GraphNode, GraphEdge
-from ..utils.exceptions import ValidationError
+from ..utils.exceptions import ValidationError, GraphStoreError
 
 
 class BaseGraphSchema:
@@ -22,6 +22,13 @@ class BaseGraphSchema:
     
     def validate_node(self, node: GraphNode) -> bool:
         """验证节点是否符合 Schema"""
+        # 强制类型检查
+        if not isinstance(node, GraphNode):
+            raise GraphStoreError("Node must be an instance of GraphNode data class")
+        
+        if not isinstance(node.label, NodeLabel):
+            raise GraphStoreError("Node label must be an instance of NodeLabel enum")
+        
         if node.label not in self.allowed_nodes:
             raise ValidationError(
                 f"Node label '{node.label}' not allowed in this schema. "
@@ -33,6 +40,13 @@ class BaseGraphSchema:
     
     def validate_edge(self, edge: GraphEdge) -> bool:
         """验证边是否符合 Schema"""
+        # 强制类型检查
+        if not isinstance(edge, GraphEdge):
+            raise GraphStoreError("Edge must be an instance of GraphEdge data class")
+        
+        if not isinstance(edge.relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
         if edge.relation_type not in self.allowed_relations:
             raise ValidationError(
                 f"Relation type '{edge.relation_type}' not allowed in this schema. "

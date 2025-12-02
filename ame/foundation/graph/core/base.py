@@ -103,9 +103,16 @@ class GraphStoreBase(ABC):
         自动进行 Schema 验证
         
         Args:
-            node: 节点对象
-            graph_type: 指定操作哪张表（LIFE 或 WORK）
+            node: 节点对象（必须使用预定义的GraphNode数据类）
+            graph_type: 指定操作哪张表（LIFE 或 WORK，必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查，确保用户只能传递预定义的数据类
+        if not isinstance(node, GraphNode):
+            raise GraphStoreError("Node must be an instance of GraphNode data class")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 1. Schema 验证（内化）
             schema = self._get_schema(graph_type)
@@ -127,9 +134,13 @@ class GraphStoreBase(ABC):
         获取节点（调用子类实现）
         
         Args:
-            node_id: 节点 ID
-            graph_type: 指定操作哪张表
+            node_id: 节点 ID（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             graph_name = self._get_graph_name(graph_type)
             return self._get_node(node_id, graph_name)
@@ -147,10 +158,17 @@ class GraphStoreBase(ABC):
         根据属性获取节点列表
         
         Args:
-            properties: 属性键值对
-            label: 节点标签（可选）
-            graph_type: 指定操作哪张表
+            properties: 属性键值对（字典）
+            label: 节点标签（可选，必须使用预定义的NodeLabel枚举）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 使用 QueryBuilder 构建查询
             query_builder = self.query_builder.reset()
@@ -173,10 +191,14 @@ class GraphStoreBase(ABC):
         更新节点属性（调用子类实现）
         
         Args:
-            node_id: 节点 ID
-            properties: 要更新的属性
-            graph_type: 指定操作哪张表
+            node_id: 节点 ID（字符串）
+            properties: 要更新的属性（字典）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             graph_name = self._get_graph_name(graph_type)
             result = self._update_node(node_id, properties, graph_name)
@@ -192,9 +214,13 @@ class GraphStoreBase(ABC):
         删除节点（调用子类实现）
         
         Args:
-            node_id: 节点 ID
-            graph_type: 指定操作哪张表
+            node_id: 节点 ID（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             graph_name = self._get_graph_name(graph_type)
             result = self._delete_node(node_id, graph_name)
@@ -215,13 +241,20 @@ class GraphStoreBase(ABC):
         根据属性删除节点
         
         Args:
-            properties: 属性键值对
-            label: 节点标签（可选）
-            graph_type: 指定操作哪张表
+            properties: 属性键值对（字典）
+            label: 节点标签（可选，必须使用预定义的NodeLabel枚举）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
             
         Returns:
             删除的节点数量
         """
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 先查询要删除的节点
             nodes_to_delete = self.get_nodes_by_properties(properties, label, graph_type)
@@ -246,9 +279,16 @@ class GraphStoreBase(ABC):
         自动进行 Schema 验证
         
         Args:
-            edge: 边对象（带有 create_time 和 invalid_time）
-            graph_type: 指定操作哪张表
+            edge: 边对象（必须使用预定义的GraphEdge数据类，带有 create_time 和 invalid_time）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查，确保用户只能传递预定义的数据类
+        if not isinstance(edge, GraphEdge):
+            raise GraphStoreError("Edge must be an instance of GraphEdge data class")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 1. Schema 验证（内化）
             schema = self._get_schema(graph_type)
@@ -275,10 +315,14 @@ class GraphStoreBase(ABC):
         获取边（调用子类实现）
         
         Args:
-            source_id: 源节点 ID
-            target_id: 目标节点 ID（可选）
-            graph_type: 指定操作哪张表
+            source_id: 源节点 ID（字符串）
+            target_id: 目标节点 ID（可选，字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             graph_name = self._get_graph_name(graph_type)
             return self._get_edges(source_id, target_id, graph_name)
@@ -297,11 +341,18 @@ class GraphStoreBase(ABC):
         删除边（调用子类实现）
         
         Args:
-            source_id: 源节点 ID
-            target_id: 目标节点 ID
-            relation_type: 关系类型
-            graph_type: 指定操作哪张表
+            source_id: 源节点 ID（字符串）
+            target_id: 目标节点 ID（字符串）
+            relation_type: 关系类型（必须使用预定义的RelationType枚举）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
         """
+        # 强制类型检查
+        if not isinstance(relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             graph_name = self._get_graph_name(graph_type)
             result = self._delete_edge(source_id, target_id, relation_type, graph_name)
@@ -320,10 +371,14 @@ class GraphStoreBase(ABC):
         用户可以直接传 Cypher，也可以用 query_builder
         
         Args:
-            cypher: Cypher 查询语句
-            graph_type: 指定操作哪张表
-            params: 查询参数
+            cypher: Cypher 查询语句（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            params: 查询参数（可选，字典）
         """
+        # 强制类型检查
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             params = params or {}
             graph_name = self._get_graph_name(graph_type)
@@ -344,11 +399,18 @@ class GraphStoreBase(ABC):
         查找邻居节点（公共方法，内化 QueryBuilder）
         
         Args:
-            node_id: 节点 ID
-            graph_type: 指定操作哪张表
-            relation_type: 关系类型（可选）
-            direction: 方向（out/in/both）
+            node_id: 节点 ID（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            relation_type: 关系类型（可选，必须使用预定义的RelationType枚举）
+            direction: 方向（out/in/both，字符串）
         """
+        # 强制类型检查
+        if relation_type is not None and not isinstance(relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 使用 QueryBuilder 构建查询（内化）
             cypher = self.query_builder.reset() \
@@ -378,12 +440,19 @@ class GraphStoreBase(ABC):
         时间点查询邻居（公共方法，内化 QueryBuilder + TimeHandler）
         
         Args:
-            node_id: 节点 ID
-            graph_type: 指定操作哪张表
-            at_time: 查询的时间点
-            relation_type: 关系类型（可选）
-            direction: 方向（out/in/both）
+            node_id: 节点 ID（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            at_time: 查询的时间点（可选，datetime对象）
+            relation_type: 关系类型（可选，必须使用预定义的RelationType枚举）
+            direction: 方向（out/in/both，字符串）
         """
+        # 强制类型检查
+        if relation_type is not None and not isinstance(relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             check_time = at_time or datetime.now()
             
@@ -417,15 +486,24 @@ class GraphStoreBase(ABC):
         查找两个节点之间的路径
         
         Args:
-            start_node_id: 起始节点 ID
-            end_node_id: 结束节点 ID
-            graph_type: 指定操作哪张表
-            max_depth: 最大深度
-            relationship_types: 关系类型列表（可选）
+            start_node_id: 起始节点 ID（字符串）
+            end_node_id: 结束节点 ID（字符串）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            max_depth: 最大深度（整数）
+            relationship_types: 关系类型列表（可选，必须使用预定义的RelationType枚举列表）
             
         Returns:
             路径中的边列表
         """
+        # 强制类型检查
+        if relationship_types is not None:
+            for rt in relationship_types:
+                if not isinstance(rt, RelationType):
+                    raise GraphStoreError("All relationship types must be instances of RelationType enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 使用 QueryBuilder 构建查询
             cypher = self.query_builder.reset() \
@@ -454,16 +532,23 @@ class GraphStoreBase(ABC):
         搜索节点（高级查询接口）
         
         Args:
-            graph_type: 指定操作哪张表
-            label: 节点标签（可选）
-            properties: 属性过滤条件（可选）
-            limit: 限制返回数量（可选）
-            order_by: 排序字段（可选）
-            order_direction: 排序方向（ASC/DESC）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            label: 节点标签（可选，必须使用预定义的NodeLabel枚举）
+            properties: 属性过滤条件（可选，字典）
+            limit: 限制返回数量（可选，整数）
+            order_by: 排序字段（可选，字符串）
+            order_direction: 排序方向（ASC/DESC，字符串）
             
         Returns:
             节点列表
         """
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 构建查询
             query_builder = self.query_builder.reset()
@@ -505,13 +590,20 @@ class GraphStoreBase(ABC):
         统计节点数量
         
         Args:
-            graph_type: 指定操作哪张表
-            label: 节点标签（可选）
-            properties: 属性过滤条件（可选）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            label: 节点标签（可选，必须使用预定义的NodeLabel枚举）
+            properties: 属性过滤条件（可选，字典）
             
         Returns:
             节点数量
         """
+        # 强制类型检查
+        if label is not None and not isinstance(label, NodeLabel):
+            raise GraphStoreError("Label must be an instance of NodeLabel enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 构建查询
             query_builder = self.query_builder.reset()
@@ -551,12 +643,19 @@ class GraphStoreBase(ABC):
         用于关系演化：不删除边，而是标记失效
         
         Args:
-            source_id: 源节点 ID
-            target_id: 目标节点 ID
-            relation_type: 关系类型
-            graph_type: 指定操作哪张表
-            invalid_time: 失效时间（默认为当前时间）
+            source_id: 源节点 ID（字符串）
+            target_id: 目标节点 ID（字符串）
+            relation_type: 关系类型（必须使用预定义的RelationType枚举）
+            graph_type: 指定操作哪张表（必须使用预定义的GraphType枚举）
+            invalid_time: 失效时间（可选，datetime对象，默认为当前时间）
         """
+        # 强制类型检查
+        if not isinstance(relation_type, RelationType):
+            raise GraphStoreError("Relation type must be an instance of RelationType enum")
+        
+        if not isinstance(graph_type, GraphType):
+            raise GraphStoreError("Graph type must be an instance of GraphType enum")
+        
         try:
             # 1. 获取边
             edges = self.get_edges(source_id, target_id, graph_type)
@@ -599,7 +698,7 @@ class GraphStoreBase(ABC):
         子类实现：初始化图谱表（创建或加载）
         
         Args:
-            graph_type: 图谱类型（LIFE 或 WORK）
+            graph_type: 图谱类型（LIFE 或 WORK，必须使用预定义的GraphType枚举）
         """
         pass
     
@@ -609,8 +708,8 @@ class GraphStoreBase(ABC):
         子类实现：底层添加节点逻辑
         
         Args:
-            node: 节点对象
-            graph_name: 表名（life_graph 或 work_graph）
+            node: 节点对象（必须使用预定义的GraphNode数据类）
+            graph_name: 表名（life_graph 或 work_graph，字符串）
         """
         pass
     
@@ -620,8 +719,8 @@ class GraphStoreBase(ABC):
         子类实现：底层获取节点逻辑
         
         Args:
-            node_id: 节点 ID
-            graph_name: 表名
+            node_id: 节点 ID（字符串）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -631,9 +730,9 @@ class GraphStoreBase(ABC):
         子类实现：底层更新节点逻辑
         
         Args:
-            node_id: 节点 ID
-            properties: 要更新的属性
-            graph_name: 表名
+            node_id: 节点 ID（字符串）
+            properties: 要更新的属性（字典）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -643,8 +742,8 @@ class GraphStoreBase(ABC):
         子类实现：底层删除节点逻辑
         
         Args:
-            node_id: 节点 ID
-            graph_name: 表名
+            node_id: 节点 ID（字符串）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -654,8 +753,8 @@ class GraphStoreBase(ABC):
         子类实现：底层添加边逻辑
         
         Args:
-            edge: 边对象（带有 create_time 和 invalid_time）
-            graph_name: 表名
+            edge: 边对象（必须使用预定义的GraphEdge数据类，带有 create_time 和 invalid_time）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -665,9 +764,9 @@ class GraphStoreBase(ABC):
         子类实现：底层获取边逻辑
         
         Args:
-            source_id: 源节点 ID
-            target_id: 目标节点 ID（可选）
-            graph_name: 表名
+            source_id: 源节点 ID（字符串）
+            target_id: 目标节点 ID（可选，字符串）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -677,10 +776,10 @@ class GraphStoreBase(ABC):
         子类实现：底层删除边逻辑
         
         Args:
-            source_id: 源节点 ID
-            target_id: 目标节点 ID
-            relation_type: 关系类型
-            graph_name: 表名
+            source_id: 源节点 ID（字符串）
+            target_id: 目标节点 ID（字符串）
+            relation_type: 关系类型（必须使用预定义的RelationType枚举）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -690,9 +789,9 @@ class GraphStoreBase(ABC):
         子类实现：底层执行 Cypher 查询
         
         Args:
-            cypher: Cypher 查询语句
-            params: 查询参数
-            graph_name: 表名
+            cypher: Cypher 查询语句（字符串）
+            params: 查询参数（字典）
+            graph_name: 表名（字符串）
         """
         pass
     
@@ -702,7 +801,7 @@ class GraphStoreBase(ABC):
         子类实现：底层更新边逻辑（用于失效时间更新）
         
         Args:
-            edge: 边对象
-            graph_name: 表名
+            edge: 边对象（必须使用预定义的GraphEdge数据类）
+            graph_name: 表名（字符串）
         """
         pass
