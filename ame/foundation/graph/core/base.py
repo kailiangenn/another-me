@@ -18,6 +18,7 @@ from ..utils.exceptions import GraphStoreError
 from ..components.schema import LifeGraphSchema, WorkGraphSchema
 from ..components.query_builder import QueryBuilder
 from ..components.time_handler import TimeHandler
+from ..components.structural_analyzer import StructuralAnalyzer
 
 
 class GraphStoreBase(ABC):
@@ -49,6 +50,7 @@ class GraphStoreBase(ABC):
         self.work_schema = WorkGraphSchema()
         self.query_builder = QueryBuilder()
         self.time_handler = TimeHandler()
+        self.structural_analyzer = StructuralAnalyzer(self)
         
         logger.info(f"GraphStore initialized: {base_name} (life & work tables)")
     

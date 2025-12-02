@@ -19,6 +19,7 @@ graph/
 ├── components/          # 组件层
 │   ├── schema.py        # Schema 管理
 │   ├── query_builder.py # 查询构建器
+│   ├── structural_analyzer.py # 结构化分析器
 │   └── time_handler.py  # 时间处理器
 ├── core/                # 核心层
 │   ├── base.py          # 抽象基类
@@ -59,6 +60,7 @@ graph/
 - 边操作（增删改查）
 - 查询操作
 - 时间处理
+- 结构化分析
 
 ### 4. 查询构建器 (components/query_builder.py)
 
@@ -70,7 +72,17 @@ graph/
 - 结果排序和限制
 - 路径查找
 
-### 5. 存储实现 (core/falkordb_store.py)
+### 5. 结构化分析器 (components/structural_analyzer.py)
+
+提供基于图结构的分析功能，不依赖外部 embedding：
+
+- 节点相似性计算
+- 相似节点查找
+- 中心性分析（度中心性、介数中心性、接近中心性）
+- 社区发现
+- 图统计信息
+
+### 6. 存储实现 (core/falkordb_store.py)
 
 FalkorDB 的具体实现，只关注底层操作。
 
@@ -104,7 +116,15 @@ Graph 模块通过内化 Cypher 语法，让用户无需直接编写复杂的查
 - `search_nodes()`: 搜索节点
 - `count_nodes()`: 统计节点数量
 
-### 4. 自动参数化和安全防护
+### 4. 图算法分析接口
+
+- `structural_analyzer.calculate_structural_similarity()`: 基于图结构计算节点相似性
+- `structural_analyzer.find_similar_nodes()`: 查找相似节点
+- `structural_analyzer.calculate_centrality()`: 计算中心性指标
+- `structural_analyzer.detect_communities()`: 社区发现
+- `structural_analyzer.get_graph_statistics()`: 获取图统计信息
+
+### 5. 自动参数化和安全防护
 
 所有内化接口都使用参数化查询，防止 Cypher 注入攻击。
 
@@ -277,7 +297,32 @@ count = store.count_nodes(
 )
 ```
 
-### 5. 关系演化
+### 5. 图算法分析
+
+```python
+# 计算节点相似性（不依赖embedding）
+similarity = store.structural_analyzer.calculate_structural_similarity(
+    "person_001", "person_002", GraphType.LIFE
+)
+
+# 查找相似节点
+similar_nodes = store.structural_analyzer.find_similar_nodes(
+    "person_001", GraphType.LIFE, threshold=0.3, limit=5
+)
+
+# 计算中心性
+centrality = store.structural_analyzer.calculate_centrality(
+    GraphType.LIFE, centrality_type="degree"
+)
+
+# 社区发现
+communities = store.structural_analyzer.detect_communities(GraphType.LIFE)
+
+# 图统计信息
+stats = store.structural_analyzer.get_graph_statistics(GraphType.LIFE)
+```
+
+### 6. 关系演化
 
 ```python
 from datetime import datetime
@@ -326,3 +371,4 @@ def analyze_skill_patterns(store, user_id):
 5. **场景隔离**：生活和工作两个图谱独立，互不干扰
 6. **易于扩展**：支持动态添加新的节点和关系类型
 7. **使用简单**：内化 Cypher 语法，用户无需关注底层实现细节
+8. **分析强大**：提供结构化分析功能，无需依赖外部 embedding 服务

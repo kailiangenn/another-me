@@ -78,18 +78,40 @@ class QueryBuilder:
         """添加关系匹配"""
         rel_str = f":{relation_type.value}" if relation_type else ""
         
+        # 构建关系模式
         if direction == "out":
-            pattern = f"({source_alias})-[{edge_alias}{rel_str}]->({target_alias})"
+            pattern = f"-[{edge_alias}{rel_str}]->({target_alias})"
         elif direction == "in":
-            pattern = f"({source_alias})<-[{edge_alias}{rel_str}]-({target_alias})"
+            pattern = f"<-[{edge_alias}{rel_str}]-({target_alias})"
         else:  # both
-            pattern = f"({source_alias})-[{edge_alias}{rel_str}]-({target_alias})"
+            pattern = f"-[{edge_alias}{rel_str}]-({target_alias})"
         
-        # 更新最后一个 MATCH 子句
+        # 更新最后一个 MATCH 子句，将关系模式正确连接到源节点上
         if self._match_clauses:
-            self._match_clauses[-1] += f" {pattern}"
+            last_clause = self._match_clauses[-1]
+            # 特别处理 match_node_by_id 产生的模式，如 "MATCH (n {id: $param_0})"
+            if last_clause.startswith("MATCH (") and "{id: $" in last_clause and last_clause.endswith("})"):
+                # 直接在最后添加关系模式
+                self._match_clauses[-1] = last_clause[:-1] + f"){pattern}"
+            # 处理一般的节点匹配模式
+            elif f"({source_alias})" in last_clause and not ("->" in last_clause or "<-" in last_clause):
+                # 将节点匹配转换为带关系的匹配
+                start_pos = last_clause.rfind(f"({source_alias}")
+                if start_pos != -1:
+                    end_pos = last_clause.find(")", start_pos)
+                    if end_pos != -1:
+                        node_part = last_clause[start_pos:end_pos+1]
+                        self._match_clauses[-1] = last_clause.replace(node_part, f"{node_part}{pattern}", 1)
+                    else:
+                        self._match_clauses.append(f"MATCH ({source_alias}){pattern}")
+                else:
+                    self._match_clauses.append(f"MATCH ({source_alias}){pattern}")
+            else:
+                # 如果最后一个子句已经是带关系的匹配，或者不是以源别名结尾，则添加一个新的 MATCH 子句
+                self._match_clauses.append(f"MATCH ({source_alias}){pattern}")
         else:
-            self._match_clauses.append(f"MATCH {pattern}")
+            # 如果还没有 MATCH 子句，则添加一个新的
+            self._match_clauses.append(f"MATCH ({source_alias}){pattern}")
         
         return self
     
