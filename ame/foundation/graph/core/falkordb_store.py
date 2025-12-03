@@ -295,9 +295,34 @@ class FalkorDBStore(GraphStoreBase):
             edges = []
             
             if result.result_set:
-                # 简化实现：直接返回原始数据
-                # 实际使用中可以根据返回的数据结构解析
-                pass
+                # 解析节点和边
+                for row in result.result_set:
+                    for item in row:
+                        # 检查是否为节点
+                        if hasattr(item, 'id') and hasattr(item, 'labels') and hasattr(item, 'properties'):
+                            # 创建 GraphNode 对象
+                            label = NodeLabel(item.labels[0]) if item.labels else NodeLabel.ENTITY
+                            node = GraphNode(
+                                id=item.id,
+                                label=label,
+                                properties=dict(item.properties) if item.properties else {}
+                            )
+                            nodes.append(node)
+                        # 检查是否为关系
+                        elif hasattr(item, 'src_node') and hasattr(item, 'dest_node') and hasattr(item, 'relation'):
+                            # 创建 GraphEdge 对象
+                            try:
+                                relation_type = RelationType(item.relation)
+                            except ValueError:
+                                relation_type = RelationType.RELATES_TO  # 默认关系类型
+                            
+                            edge = GraphEdge(
+                                source_id=item.src_node,
+                                target_id=item.dest_node,
+                                relation_type=relation_type,
+                                properties=dict(item.properties) if item.properties else {}
+                            )
+                            edges.append(edge)
             
             return QueryResult(
                 nodes=nodes,
@@ -306,7 +331,7 @@ class FalkorDBStore(GraphStoreBase):
             )
         except Exception as e:
             logger.error(f"FalkorDB query failed: {str(e)}")
-            raise QueryError(f"Query execution failed: {str(e)}", query=cypher)
+            raise QueryError(f"Query execution failed: {str(e)}", query=cypher) from e
     
     def _update_edge(self, edge: GraphEdge, graph_name: str) -> bool:
         """实现：FalkorDB 更新边属性（用于失效时间更新）"""

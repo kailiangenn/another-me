@@ -200,6 +200,23 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 获取现有节点以进行 Schema 验证
+            existing_node = self.get_node(node_id, graph_type)
+            if not existing_node:
+                logger.error(f"Node not found for update: {node_id}")
+                return False
+            
+            # 创建更新后的节点以进行 Schema 验证
+            updated_node = GraphNode(
+                id=existing_node.id,
+                label=existing_node.label,
+                properties={**existing_node.properties, **properties}
+            )
+            
+            # Schema 验证（内化）
+            schema = self._get_schema(graph_type)
+            schema.validate_node(updated_node)
+            
             graph_name = self._get_graph_name(graph_type)
             result = self._update_node(node_id, properties, graph_name)
             if result:
@@ -354,6 +371,11 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证关系类型是否在Schema中
+            schema = self._get_schema(graph_type)
+            if relation_type not in schema.allowed_relations:
+                raise GraphStoreError(f"Relation type '{relation_type}' not allowed in {graph_type.value} schema")
+            
             graph_name = self._get_graph_name(graph_type)
             result = self._delete_edge(source_id, target_id, relation_type, graph_name)
             if result:
@@ -412,6 +434,12 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证关系类型是否在Schema中（如果提供了关系类型）
+            if relation_type is not None:
+                schema = self._get_schema(graph_type)
+                if relation_type not in schema.allowed_relations:
+                    raise GraphStoreError(f"Relation type '{relation_type}' not allowed in {graph_type.value} schema")
+            
             # 使用 QueryBuilder 构建查询（内化）
             cypher = self.query_builder.reset() \
                 .match_node_by_id(node_id, "n") \
@@ -455,6 +483,12 @@ class GraphStoreBase(ABC):
         
         try:
             check_time = at_time or datetime.now()
+            
+            # 验证关系类型是否在Schema中（如果提供了关系类型）
+            if relation_type is not None:
+                schema = self._get_schema(graph_type)
+                if relation_type not in schema.allowed_relations:
+                    raise GraphStoreError(f"Relation type '{relation_type}' not allowed in {graph_type.value} schema")
             
             # 使用 QueryBuilder 构建查询（内化）
             cypher = self.query_builder.reset() \
@@ -505,6 +539,13 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证关系类型是否在Schema中（如果提供了关系类型）
+            if relationship_types is not None:
+                schema = self._get_schema(graph_type)
+                for rt in relationship_types:
+                    if rt not in schema.allowed_relations:
+                        raise GraphStoreError(f"Relation type '{rt}' not allowed in {graph_type.value} schema")
+            
             # 使用 QueryBuilder 构建查询
             cypher = self.query_builder.reset() \
                 .find_path(start_node_id, end_node_id, max_depth, relationship_types) \
@@ -550,6 +591,12 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证标签是否在Schema中（如果提供了标签）
+            if label is not None:
+                schema = self._get_schema(graph_type)
+                if label not in schema.allowed_nodes:
+                    raise GraphStoreError(f"Node label '{label}' not allowed in {graph_type.value} schema")
+            
             # 构建查询
             query_builder = self.query_builder.reset()
             
@@ -605,6 +652,12 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证标签是否在Schema中（如果提供了标签）
+            if label is not None:
+                schema = self._get_schema(graph_type)
+                if label not in schema.allowed_nodes:
+                    raise GraphStoreError(f"Node label '{label}' not allowed in {graph_type.value} schema")
+            
             # 构建查询
             query_builder = self.query_builder.reset()
             
@@ -657,6 +710,11 @@ class GraphStoreBase(ABC):
             raise GraphStoreError("Graph type must be an instance of GraphType enum")
         
         try:
+            # 验证关系类型是否在Schema中
+            schema = self._get_schema(graph_type)
+            if relation_type not in schema.allowed_relations:
+                raise GraphStoreError(f"Relation type '{relation_type}' not allowed in {graph_type.value} schema")
+            
             # 1. 获取边
             edges = self.get_edges(source_id, target_id, graph_type)
             target_edge = None
